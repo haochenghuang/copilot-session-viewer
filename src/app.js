@@ -31,9 +31,11 @@ function createApp(options = {}) {
         styleSrc: ['\'self\'', '\'unsafe-inline\'', 'https://fonts.googleapis.com', 'https://cdn.jsdelivr.net', 'https://unpkg.com'],
         fontSrc: ['\'self\'', 'https://fonts.gstatic.com'],
         scriptSrc: ['\'self\'', '\'unsafe-inline\'', '\'unsafe-eval\'', 'https://cdn.jsdelivr.net', 'https://unpkg.com'],
-        imgSrc: ['\'self\'', 'data:', 'https:']
+        imgSrc: ['\'self\'', 'data:', 'https:'],
+        upgradeInsecureRequests: null // Disable for local HTTP access from mobile
       }
-    }
+    },
+    hsts: false // Disable HSTS for local HTTP development
   }));
 
   app.use(compression({
