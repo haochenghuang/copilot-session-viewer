@@ -919,8 +919,8 @@
   
   <!-- Vue App -->
   <script>
-    // Wait for DOM and all resources to be ready
-    document.addEventListener('DOMContentLoaded', function() {
+    // Immediate initialization (script is at bottom, DOM is ready)
+    (function() {
       // Verify Vue is loaded
       if (typeof Vue === 'undefined') {
         console.error('Vue is not loaded');
@@ -1736,9 +1736,20 @@
         };
         
         const exportSession = async () => {
+          console.log('[Export] exportSession called');
           exporting.value = true;
           try {
+            console.log('[Export] Fetching:', `/session/${sessionId.value}/export`);
             const response = await fetch(`/session/${sessionId.value}/export`);
+            console.log('[Export] Response received:', response.status, response.ok);
+            if (!response.ok) {
+              throw new Error('Share failed');
+            }
+            
+            // Download the file
+            console.log('[Export] Creating blob...');
+            const blob = await response.blob();
+            console.log('[Export] Blob size:', blob.size, 'type:', blob.type);
             if (!response.ok) {
               throw new Error('Share failed');
             }
@@ -1746,31 +1757,37 @@
             // Download the file
             const blob = await response.blob();
             const url = window.URL.createObjectURL(blob);
+            console.log('[Export] Creating download link...');
             const a = document.createElement('a');
             a.href = url;
             a.download = `session-${sessionId.value}.zip`;
             document.body.appendChild(a);
             a.click();
+            console.log('[Export] Download triggered');
             window.URL.revokeObjectURL(url);
             document.body.removeChild(a);
             
             // Show success feedback
+            console.log('[Export] Showing success feedback...');
             const originalText = '📤 Share Session';
             const successText = '✓ Downloaded!';
             const btn = document.querySelector('.export-btn');
             if (btn) {
               btn.textContent = successText;
               btn.style.background = '#238636';
+              console.log('[Export] Button text updated to:', btn.textContent);
               setTimeout(() => {
                 btn.textContent = originalText;
                 btn.style.background = '';
+                console.log('[Export] Button text restored');
               }, 2000);
             }
           } catch (err) {
-            console.error('Share session error:', err);
+            console.error('[Export] Share session error:', err);
             alert('Failed to share session: ' + err.message);
           } finally {
             exporting.value = false;
+            console.log('[Export] Export complete');
           }
         };
         
@@ -2387,9 +2404,15 @@
 
     // Mount the app
     console.log('Mounting Vue app to #app...');
-    app.mount('#app');
-    console.log('Vue app mounted successfully!');
-  }); // End DOMContentLoaded
+    try {
+      const vm = app.mount('#app');
+      console.log('Vue app mounted successfully!', vm ? 'Instance created' : 'No instance');
+      console.log('VM type:', typeof vm, 'Has exportSession:', typeof vm?.exportSession);
+    } catch (error) {
+      console.error('Mount failed:', error);
+      console.error('Error stack:', error.stack);
+    }
+    })(); // End IIFE
   </script>
 </body>
 </html>
