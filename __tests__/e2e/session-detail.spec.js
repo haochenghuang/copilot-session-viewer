@@ -55,13 +55,24 @@ test.describe('Session Detail Page', () => {
   test('should display event list', async ({ page }) => {
     await page.goto(`/session/${SESSION_ID}`);
     
-    // Wait for Vue to mount and events to load
-    await page.waitForSelector('.main-layout', { timeout: 10000 });
-    await page.waitForSelector('.event-header', { timeout: 10000 });
+    // Wait for Vue to mount
+    await page.waitForSelector('.main-layout', { timeout: 15000 });
+    
+    // Wait for loading to finish (either events load or error appears)
+    await page.waitForFunction(() => {
+      const loadingEl = document.querySelector('.loading-message');
+      return loadingEl === null || window.getComputedStyle(loadingEl).display === 'none';
+    }, { timeout: 30000 });
+    
+    // Check if error occurred
+    const errorEl = page.locator('.error-message');
+    if (await errorEl.count() > 0) {
+      throw new Error(`Events failed to load: ${await errorEl.textContent()}`);
+    }
     
     // Check events are displayed
     const events = page.locator('.event-header');
-    await expect(events.first()).toBeVisible();
+    await expect(events.first()).toBeVisible({ timeout: 5000 });
     const count = await events.count();
     expect(count).toBeGreaterThan(0);
   });
@@ -88,8 +99,14 @@ test.describe('Session Detail Page', () => {
     // Wait for virtual scroller to stabilize
     await page.waitForTimeout(1000);
 
-    // Get initial event count
-    const initialCount = await page.locator('.event-header').count();
+    // Get initial event count from "All (N)" button text
+    const getEventCount = async () => {
+      const allButtonText = await page.locator('button').filter({ hasText: /^All \(\d+\)$/ }).textContent();
+      const match = allButtonText.match(/All \((\d+)\)/);
+      return match ? parseInt(match[1]) : 0;
+    };
+    
+    const initialCount = await getEventCount();
     expect(initialCount).toBeGreaterThan(0);
 
     // Type in search box
@@ -99,8 +116,7 @@ test.describe('Session Detail Page', () => {
     // Wait for debounce + search to complete
     await page.waitForTimeout(800);
 
-    // Get filtered count
-    const filteredCount = await page.locator('.event-header').count();
+    const filteredCount = await getEventCount();
 
     // Filtered count should be less than or equal to initial
     expect(filteredCount).toBeLessThanOrEqual(initialCount);
@@ -108,11 +124,32 @@ test.describe('Session Detail Page', () => {
 
   test('should clear search filter', async ({ page }) => {
     await page.goto(`/session/${SESSION_ID}`);
-    await page.waitForSelector('.main-layout', { timeout: 10000 });
-    await page.waitForSelector('.event-header', { timeout: 10000 });
+    await page.waitForSelector('.main-layout', { timeout: 15000 });
+    
+    // Wait for loading to finish
+    await page.waitForFunction(() => {
+      const loadingEl = document.querySelector('.loading-message');
+      return loadingEl === null || window.getComputedStyle(loadingEl).display === 'none';
+    }, { timeout: 30000 });
+    
+    // Check if error occurred
+    const errorEl = page.locator('.error-message');
+    if (await errorEl.count() > 0) {
+      throw new Error(`Events failed to load: ${await errorEl.textContent()}`);
+    }
+    
+    // Wait for events to appear
+    await page.waitForSelector('.event-header', { timeout: 5000 });
     
     // Wait for virtual scroller to stabilize
     await page.waitForTimeout(1000);
+    
+    // Helper function to get event count from "All (N)" button
+    const getEventCount = async () => {
+      const allButtonText = await page.locator('button').filter({ hasText: /^All \(\d+\)$/ }).textContent();
+      const match = allButtonText.match(/All \((\d+)\)/);
+      return match ? parseInt(match[1]) : 0;
+    };
     
     const searchInput = page.locator('input[placeholder="🔍 Search events..."]');
     
@@ -120,13 +157,13 @@ test.describe('Session Detail Page', () => {
     await searchInput.fill('assistant.message');
     await page.waitForTimeout(800);
     
-    const filteredCount = await page.locator('.event-header').count();
+    const filteredCount = await getEventCount();
     
     // Clear search
     await searchInput.clear();
     await page.waitForTimeout(800);
     
-    const clearedCount = await page.locator('.event-header').count();
+    const clearedCount = await getEventCount();
     
     // Count should increase after clearing
     expect(clearedCount).toBeGreaterThanOrEqual(filteredCount);
@@ -186,26 +223,32 @@ test.describe('Session Detail Page', () => {
     await page.waitForTimeout(2000);
     
     // Find an event with "Show more" button
-    const showMoreButton = page.locator('button').filter({ hasText: 'Show more ▼' }).first();
+    const firstButton = page.locator('button').filter({ hasText: 'Show more ▼' }).first();
     
-    if (await showMoreButton.count() > 0) {
+    if (await firstButton.count() > 0) {
+      // Get the stable content ID from data attribute
+      const contentId = await firstButton.getAttribute('data-content-id');
+      
+      // Use stable selector based on content ID
+      const button = page.locator(`button[data-content-id="${contentId}"]`);
+      
       // Scroll element into view (works with virtual scrolling)
-      await showMoreButton.scrollIntoViewIfNeeded();
+      await button.scrollIntoViewIfNeeded();
       await page.waitForTimeout(300);
       
       // Click "Show more" - use force:true for virtual scroll compatibility
-      await showMoreButton.click({ force: true });
+      await button.click({ force: true });
       await page.waitForTimeout(300);
       
       // Button text should change to "Show less"
-      await expect(showMoreButton).toContainText('Show less ▲');
+      await expect(button).toContainText('Show less ▲');
       
       // Click "Show less"
-      await showMoreButton.click({ force: true });
+      await button.click({ force: true });
       await page.waitForTimeout(300);
       
       // Button text should change back
-      await expect(showMoreButton).toContainText('Show more ▼');
+      await expect(button).toContainText('Show more ▼');
     }
   });
 

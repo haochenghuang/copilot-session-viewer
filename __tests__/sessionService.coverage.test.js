@@ -177,7 +177,6 @@ describe('SessionService - Coverage Enhancement', () => {
     it('should handle error when searching Claude projects', async () => {
       const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation();
       const sessionId = 'claude-error';
-      const claudeDir = path.join(tmpDir, 'claude');
       // Don't create directory to trigger error
 
       const mockSession = { id: sessionId, type: 'file', source: 'claude' };
@@ -385,7 +384,7 @@ describe('SessionService - Coverage Enhancement', () => {
       mockRepository.findById.mockResolvedValue(mockSession);
 
       const serviceWithDir = new SessionService(tmpDir);
-      const events = await serviceWithDir.getSessionEvents(sessionId);
+      await serviceWithDir.getSessionEvents(sessionId);
 
       expect(consoleErrorSpy).toHaveBeenCalled();
       consoleErrorSpy.mockRestore();
@@ -460,7 +459,7 @@ describe('SessionService - Coverage Enhancement', () => {
       mockRepository.findById.mockResolvedValue(mockSession);
 
       const serviceWithDir = new SessionService(tmpDir);
-      const events = await serviceWithDir.getSessionEvents(sessionId);
+      await serviceWithDir.getSessionEvents(sessionId);
 
       expect(consoleErrorSpy).toHaveBeenCalled();
       consoleErrorSpy.mockRestore();
@@ -506,7 +505,7 @@ describe('SessionService - Coverage Enhancement', () => {
       const mockSession = { id: sessionId, type: 'file', source: 'claude' };
       mockRepository.findById.mockResolvedValue(mockSession);
 
-      const events = await service.getSessionEvents(sessionId);
+      await service.getSessionEvents(sessionId);
 
       expect(consoleErrorSpy).toHaveBeenCalled();
       consoleErrorSpy.mockRestore();
@@ -1016,7 +1015,7 @@ describe('SessionService - Coverage Enhancement', () => {
       mockRepository.findById.mockResolvedValue(mockSession);
 
       const serviceWithDir = new SessionService(tmpDir);
-      const events = await serviceWithDir.getSessionEvents(sessionId);
+      await serviceWithDir.getSessionEvents(sessionId);
 
       expect(consoleErrorSpy).toHaveBeenCalled();
       expect(consoleErrorSpy.mock.calls[0][0]).toBe('Error reading main events file:');

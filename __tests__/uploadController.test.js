@@ -52,18 +52,60 @@ function createAsyncRes() {
 async function setupImportSessionTest(controller, req, fsMocks = {}) {
   const res = createAsyncRes();
   
-  let closeHandler, errorHandler;
-  const mockProcess = {
+  let listCloseHandler, listErrorHandler;
+  let extractCloseHandler, extractErrorHandler;
+  
+  let spawnCallCount = 0;
+  
+  // Mock process for `unzip -l` (list contents - first call)
+  const mockListProcess = {
     on: jest.fn((event, handler) => {
-      if (event === 'close') closeHandler = handler;
-      if (event === 'error') errorHandler = handler;
-      return mockProcess;
+      if (event === 'close') listCloseHandler = handler;
+      if (event === 'error') listErrorHandler = handler;
+      return mockListProcess;
+    }),
+    stdout: {
+      on: jest.fn((event, handler) => {
+        if (event === 'data') {
+          // Simulate unzip -l output with reasonable size
+          const mockOutput = `Archive:  test.zip
+  Length      Date    Time    Name
+---------  ---------- -----   ----
+    10240  2024-02-23 12:00   test-session/
+     1024  2024-02-23 12:00   test-session/events.jsonl
+---------                     -------
+    11264                     2 files\n`;
+          handler(Buffer.from(mockOutput));
+        }
+        return mockListProcess.stdout;
+      })
+    }
+  };
+  
+  // Mock process for `unzip -q` (extract - second call)
+  const mockExtractProcess = {
+    on: jest.fn((event, handler) => {
+      if (event === 'close') extractCloseHandler = handler;
+      if (event === 'error') extractErrorHandler = handler;
+      return mockExtractProcess;
     })
   };
-  spawn.mockReturnValue(mockProcess);
+  
+  // Return different mock processes for different spawn calls
+  spawn.mockImplementation((cmd, args) => {
+    spawnCallCount++;
+    if (spawnCallCount === 1 && args && args[0] === '-l') {
+      // First call: unzip -l (list)
+      return mockListProcess;
+    } else {
+      // Second call: unzip -q (extract)
+      return mockExtractProcess;
+    }
+  });
 
   // Mock fs operations with defaults
   jest.spyOn(fs.promises, 'mkdir').mockResolvedValue();
+  jest.spyOn(fs.promises, 'stat').mockResolvedValue({ size: 1000 }); // Mock file size
   jest.spyOn(fs.promises, 'unlink').mockResolvedValue();
   jest.spyOn(fs.promises, 'rm').mockResolvedValue();
   
@@ -74,10 +116,18 @@ async function setupImportSessionTest(controller, req, fsMocks = {}) {
 
   controller.importSession(req, res);
   
-  // Wait for handlers to be registered
+  // Wait for first spawn (list) to be called
   await new Promise(resolve => setImmediate(resolve));
   
-  return { res, closeHandler, errorHandler };
+  // Simulate successful list operation
+  if (listCloseHandler) {
+    await listCloseHandler(0); // Exit code 0 = success
+  }
+  
+  // Wait for second spawn (extract) to be called
+  await new Promise(resolve => setImmediate(resolve));
+  
+  return { res, closeHandler: extractCloseHandler, errorHandler: extractErrorHandler, listCloseHandler, listErrorHandler };
 }
 
 describe('UploadController', () => {
@@ -143,7 +193,6 @@ describe('UploadController', () => {
         storage.fileFilter(req, file, cb);
       } else {
         // For multer with default storage, access via options
-        const multer = require('multer');
         const fileFilterFn = (req, file, callback) => {
           const isZipExtension = file.originalname.toLowerCase().endsWith('.zip');
           const isZipMime = file.mimetype === 'application/zip' ||
@@ -609,30 +658,69 @@ describe('UploadController', () => {
       const req = { file: { path: zipPath } };
       const res = createAsyncRes();
 
-      let closeHandler;
-      const mockProcess = {
+      let listCloseHandler, extractCloseHandler;
+      let spawnCallCount = 0;
+      
+      // Mock process for `unzip -l` (list contents - first call)
+      const mockListProcess = {
         on: jest.fn((event, handler) => {
-          if (event === 'close') {
-            closeHandler = handler;
-          }
-          return mockProcess;
+          if (event === 'close') listCloseHandler = handler;
+          return mockListProcess;
+        }),
+        stdout: {
+          on: jest.fn((event, handler) => {
+            if (event === 'data') {
+              // Simulate unzip -l output
+              const mockOutput = `Archive:  test.zip
+  Length      Date    Time    Name
+---------  ---------- -----   ----
+     1024  2024-02-23 12:00   test-session/events.jsonl
+---------                     -------
+     1024                     1 files\n`;
+              handler(Buffer.from(mockOutput));
+            }
+            return mockListProcess.stdout;
+          })
+        }
+      };
+      
+      // Mock process for `unzip -q` (extract - second call, will fail)
+      const mockExtractProcess = {
+        on: jest.fn((event, handler) => {
+          if (event === 'close') extractCloseHandler = handler;
+          return mockExtractProcess;
         })
       };
-      spawn.mockReturnValue(mockProcess);
+      
+      spawn.mockImplementation((cmd, args) => {
+        spawnCallCount++;
+        if (spawnCallCount === 1 && args && args[0] === '-l') {
+          return mockListProcess;
+        } else {
+          return mockExtractProcess;
+        }
+      });
 
       // Mock ALL fs operations used in importSession
       jest.spyOn(fs.promises, 'mkdir').mockResolvedValue();
+      jest.spyOn(fs.promises, 'stat').mockResolvedValue({ size: 1000 });
       jest.spyOn(fs.promises, 'unlink').mockResolvedValue();
       jest.spyOn(fs.promises, 'rm').mockResolvedValue();
 
       controller.importSession(req, res);
 
-      // Wait for importSession to register handlers
+      // Wait for first spawn (list) to be called and simulate success
+      await new Promise(resolve => setImmediate(resolve));
+      if (listCloseHandler) {
+        await listCloseHandler(0); // List succeeds
+      }
+      
+      // Wait for second spawn (extract) to be called
       await new Promise(resolve => setImmediate(resolve));
       
-      // Simulate unzip failure and wait for async handler
-      if (closeHandler) {
-        await closeHandler(1);
+      // Simulate extract failure
+      if (extractCloseHandler) {
+        await extractCloseHandler(1); // Extract fails
       }
 
       // Wait for response

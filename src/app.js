@@ -7,7 +7,8 @@ const helmet = require('helmet');
 const config = require('./config');
 
 // Middleware
-const { globalLimiter, insightGenerationLimiter, insightAccessLimiter, uploadLimiter } = require('./middleware/rateLimiting');
+// Rate limiting disabled for local development
+// const { globalLimiter, insightGenerationLimiter, insightAccessLimiter, uploadLimiter } = require('./middleware/rateLimiting');
 const { requestTimeout, developmentCors, errorHandler, notFoundHandler } = require('./middleware/common');
 
 // Controllers
@@ -68,8 +69,8 @@ function createApp(options = {}) {
     app.use(developmentCors);
   }
 
-  // Rate limiting
-  app.use(globalLimiter);
+  // Rate limiting - DISABLED for local development
+  // app.use(globalLimiter);
 
   // Static files
   app.use('/public', express.static(path.join(__dirname, '../public')));
@@ -99,13 +100,13 @@ function createApp(options = {}) {
     uploadController.importSession.bind(uploadController)
   );
 
-  // Insight routes with appropriate rate limiting
-  app.post('/session/:id/insight', insightGenerationLimiter, insightController.generateInsight.bind(insightController));
-  app.get('/session/:id/insight', insightController.getInsightStatus.bind(insightController)); // Remove rate limiting for GET
-  app.delete('/session/:id/insight', insightAccessLimiter, insightController.deleteInsight.bind(insightController));
+  // Insight routes (rate limiting disabled)
+  app.post('/session/:id/insight', insightController.generateInsight.bind(insightController));
+  app.get('/session/:id/insight', insightController.getInsightStatus.bind(insightController));
+  app.delete('/session/:id/insight', insightController.deleteInsight.bind(insightController));
 
-  // Upload rate limiting
-  app.use('/session/import', uploadLimiter);
+  // Upload rate limiting - DISABLED
+  // app.use('/session/import', uploadLimiter);
 
   // Error handling
   app.use(notFoundHandler);

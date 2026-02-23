@@ -1,6 +1,5 @@
 const express = require('express');
 const request = require('supertest');
-const path = require('path');
 
 // Mock controllers
 jest.mock('../src/controllers/sessionController');
@@ -321,7 +320,7 @@ describe('Routes', () => {
       testApp.use('/api', apiRouter);
 
       // Add error handler
-      testApp.use((err, req, res, next) => {
+      testApp.use((err, req, res, _next) => {
         res.status(500).json({ error: err.message });
       });
 
@@ -350,7 +349,7 @@ describe('Routes', () => {
       testApp.use('/insights', insightsRouter);
 
       // Add async error handler
-      testApp.use((err, req, res, next) => {
+      testApp.use((err, req, res, _next) => {
         res.status(500).json({ error: err.message });
       });
 

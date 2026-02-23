@@ -270,7 +270,7 @@ describe('InsightService', () => {
       await fs.writeFile(eventsFile, '{"type":"test"}');
 
       const { mockProcess } = createMockCopilotProcess();
-      const { mockReadStream, mockWriteStream } = setupFileMocks();
+      const { mockReadStream } = setupFileMocks();
       spawn.mockReturnValue(mockProcess);
 
       mockReadStream.pipe.mockImplementation((destination) => destination);
@@ -303,7 +303,7 @@ describe('InsightService', () => {
       await fs.writeFile(eventsFile, '{"type":"test"}');
 
       const { mockProcess } = createMockCopilotProcess();
-      const { mockReadStream, mockWriteStream } = setupFileMocks();
+      const { mockReadStream } = setupFileMocks();
       spawn.mockReturnValue(mockProcess);
 
       mockReadStream.pipe.mockImplementation((destination) => destination);
@@ -335,7 +335,7 @@ describe('InsightService', () => {
       await fs.writeFile(eventsFile, '{"type":"test"}');
 
       const { mockProcess } = createMockCopilotProcess();
-      const { mockReadStream, mockWriteStream } = setupFileMocks();
+      const { mockReadStream } = setupFileMocks();
       spawn.mockReturnValue(mockProcess);
 
       mockReadStream.pipe.mockImplementation((destination) => {
@@ -359,7 +359,7 @@ describe('InsightService', () => {
       await fs.writeFile(eventsFile, '{"type":"test"}');
 
       const { mockProcess } = createMockCopilotProcess();
-      const { mockReadStream, mockWriteStream } = setupFileMocks();
+      const { mockReadStream } = setupFileMocks();
       spawn.mockReturnValue(mockProcess);
 
       const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
@@ -387,7 +387,7 @@ describe('InsightService', () => {
       const tmpFile = path.join(sessionPath, 'agent-review.md.tmp');
 
       const { mockProcess, mockStderr } = createMockCopilotProcess();
-      const { mockReadStream, mockWriteStream } = setupFileMocks();
+      const { mockReadStream } = setupFileMocks();
       spawn.mockReturnValue(mockProcess);
 
       mockReadStream.pipe.mockImplementation((destination) => destination);
@@ -427,7 +427,7 @@ describe('InsightService', () => {
       const tmpFile = path.join(sessionPath, 'agent-review.md.tmp');
 
       const { mockProcess, mockStderr } = createMockCopilotProcess();
-      const { mockReadStream, mockWriteStream } = setupFileMocks();
+      const { mockReadStream } = setupFileMocks();
       spawn.mockReturnValue(mockProcess);
 
       mockReadStream.pipe.mockImplementation((destination) => destination);
@@ -460,7 +460,7 @@ describe('InsightService', () => {
       await fs.writeFile(eventsFile, '{"type":"test"}');
 
       const { mockProcess } = createMockCopilotProcess();
-      const { mockReadStream, mockWriteStream } = setupFileMocks();
+      const { mockReadStream } = setupFileMocks();
       spawn.mockReturnValue(mockProcess);
 
       mockReadStream.pipe.mockImplementation((destination) => destination);
@@ -489,7 +489,7 @@ describe('InsightService', () => {
       await fs.writeFile(eventsFile, '{"type":"test"}');
 
       const { mockProcess } = createMockCopilotProcess();
-      const { mockReadStream, mockWriteStream } = setupFileMocks();
+      const { mockReadStream } = setupFileMocks();
       spawn.mockReturnValue(mockProcess);
 
       mockReadStream.pipe.mockImplementation((destination) => destination);

@@ -3,6 +3,7 @@ const path = require('path');
 const readline = require('readline');
 const { isValidSessionId, buildMetadata } = require('../utils/helpers');
 const SessionRepository = require('./sessionRepository');
+const EventNormalizer = require('./eventNormalizer');
 
 class SessionService {
   constructor(sessionDir) {
@@ -15,6 +16,9 @@ class SessionService {
       // Use default configuration (Copilot + Claude + Pi-Mono)
       this.sessionRepository = new SessionRepository();
     }
+
+    // Initialize EventNormalizer for unified tool format
+    this.eventNormalizer = new EventNormalizer();
   }
 
   async getAllSessions() {
@@ -49,15 +53,15 @@ class SessionService {
     return sessions.find(s => s.id === sessionId);
   }
 
-  async getSessionEvents(sessionId) {
+  async getSessionEvents(sessionId, options = null) {
     if (!isValidSessionId(sessionId)) {
-      return [];
+      return options ? { events: [], total: 0 } : [];
     }
 
     // First, find the session to get its source and type
     const session = await this.sessionRepository.findById(sessionId);
     if (!session) {
-      return [];
+      return options ? { events: [], total: 0 } : [];
     }
 
 
@@ -243,7 +247,21 @@ class SessionService {
         delete e._fileIndex;
       }
     });
-    
+
+    // Apply unified tool schema normalization (adds startTime, endTime, status, etc.)
+    events = this.eventNormalizer.normalizeEvents(events, session.source);
+
+    // Apply pagination if requested
+    if (options && typeof options.limit === 'number' && typeof options.offset === 'number') {
+      const total = events.length;
+      const paginatedEvents = events.slice(options.offset, options.offset + options.limit);
+      return {
+        events: paginatedEvents,
+        total
+      };
+    }
+
+    // Backward compatibility: return array when no pagination options
     return events;
   }
 
@@ -579,7 +597,7 @@ class SessionService {
             const exec = toolExecutions.get(toolId);
             exec.complete = event;
             exec.result = event.data?.result;
-            exec.status = event.data?.error ? 'error' : 'success';
+            exec.status = event.data?.error ? 'error' : 'completed';
             exec.error = event.data?.error;
           } else {
             // Bug fix #3: Handle orphaned execution_complete events (no matching start)
@@ -590,7 +608,7 @@ class SessionService {
               start: null, // No start event
               complete: event,
               result: event.data?.result,
-              status: event.data?.error ? 'error' : 'success',
+              status: event.data?.error ? 'error' : 'completed',
               error: event.data?.error
             });
           }

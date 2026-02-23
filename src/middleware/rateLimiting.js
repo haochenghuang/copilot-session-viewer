@@ -1,13 +1,19 @@
 const rateLimit = require('express-rate-limit');
 
+// Disable rate limiting in E2E tests (when NODE_ENV is test or when running via Playwright)
+const isTestEnvironment = process.env.NODE_ENV === 'test' || process.env.PLAYWRIGHT === '1';
+
 // Global rate limiting for all routes
 const globalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // 100 requests per window
+  max: isTestEnvironment ? 10000 : 100, // Much higher limit for tests
   message: { error: 'Too many requests. Please try again later.' },
   standardHeaders: true,
   legacyHeaders: false,
   skip: (req) => {
+    // Skip rate limiting entirely in test environment
+    if (isTestEnvironment) return true;
+
     // Skip static files
     if (req.path.startsWith('/public')) return true;
 

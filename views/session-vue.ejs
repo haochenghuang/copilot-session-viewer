@@ -15,6 +15,9 @@
   <!-- Markdown rendering -->
   <script src="https://cdn.jsdelivr.net/npm/marked@11.1.1/marked.min.js" integrity="sha384-zbcZAIxlvJtNE3Dp5nxLXdXtXyxwOdnILY1TDPVmKFhl4r4nSUG1r8bcFXGVa4Te" crossorigin="anonymous"></script>
   
+  <!-- DOMPurify for XSS protection -->
+  <script src="https://cdn.jsdelivr.net/npm/dompurify@3.0.8/dist/purify.min.js" crossorigin="anonymous"></script>
+  
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { 
@@ -1349,6 +1352,14 @@
               .replace(/\\"/g, '"')       // \" → 引号
               .replace(/\\\\/g, '\\');    // \\ → 反斜杠
             
+            // DOMPurify configuration for markdown content
+            const purifyConfig = {
+              ALLOWED_TAGS: ['p', 'br', 'strong', 'em', 'code', 'pre', 'a', 'ul', 'ol', 'li', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'blockquote', 'table', 'thead', 'tbody', 'tr', 'th', 'td', 'hr', 'del', 'span', 'div', 'mark'],
+              ALLOWED_ATTR: ['href', 'style', 'class'],
+              ALLOW_DATA_ATTR: false,
+              ALLOWED_URI_REGEXP: /^(?:(?:(?:f|ht)tps?|mailto|tel|callto|sms|cid|xmpp):|[^a-z]|[a-z+.\-]+(?:[^a-z+.\-:]|$))/i
+            };
+            
             // Parse YAML frontmatter
             const frontmatterMatch = processedText.match(/^---\n([\s\S]*?)\n---\n([\s\S]*)$/);
             if (frontmatterMatch) {
@@ -1363,18 +1374,33 @@
                 return { key, value };
               });
               
-              // Render frontmatter as table
+              // Render frontmatter as table (sanitize key/value)
               let tableHTML = '<table style="margin-bottom: 16px; border-collapse: collapse;"><tbody>';
               pairs.forEach(pair => {
-                tableHTML += `<tr><td style="padding: 4px 12px; border: 1px solid #30363d; font-weight: 600; color: #7d8590;">${pair.key}</td><td style="padding: 4px 12px; border: 1px solid #30363d;">${pair.value}</td></tr>`;
+                const sanitizedKey = DOMPurify.sanitize(pair.key, { ALLOWED_TAGS: [] });
+                const sanitizedValue = DOMPurify.sanitize(pair.value, { ALLOWED_TAGS: [] });
+                tableHTML += `<tr><td style="padding: 4px 12px; border: 1px solid #30363d; font-weight: 600; color: #7d8590;">${sanitizedKey}</td><td style="padding: 4px 12px; border: 1px solid #30363d;">${sanitizedValue}</td></tr>`;
               });
               tableHTML += '</tbody></table>';
               
-              // Render remaining content
-              return tableHTML + marked.parse(content);
+              // Render remaining content with sanitization
+              const markdownHTML = marked.parse(content);
+              const sanitizedMarkdown = DOMPurify.sanitize(markdownHTML, purifyConfig);
+              const result = tableHTML + sanitizedMarkdown;
+              
+              // Cache the result
+              if (markdownCache.size >= MAX_CACHE_SIZE) {
+                const firstKey = markdownCache.keys().next().value;
+                markdownCache.delete(firstKey);
+              }
+              markdownCache.set(text, result);
+              
+              return result;
             }
             
-            const result = marked.parse(processedText);
+            // Regular markdown rendering with sanitization
+            const markdownHTML = marked.parse(processedText);
+            const result = DOMPurify.sanitize(markdownHTML, purifyConfig);
             
             // Cache the result (with size limit to prevent memory leak)
             if (markdownCache.size >= MAX_CACHE_SIZE) {
@@ -1796,7 +1822,20 @@
             if (!response.ok) {
               throw new Error(`Failed to load events: ${response.statusText}`);
             }
-            loadedEvents.value = await response.json();
+            const data = await response.json();
+            
+            // Handle both old (array) and new (object with pagination) response formats
+            if (Array.isArray(data)) {
+              // Old format: direct array
+              loadedEvents.value = data;
+            } else if (data.events && Array.isArray(data.events)) {
+              // New format: { events, pagination }
+              loadedEvents.value = data.events;
+              console.log('[Navigation] Pagination:', data.pagination);
+            } else {
+              throw new Error('Invalid response format');
+            }
+            
             console.log('[Navigation] Events loaded:', loadedEvents.value.length);
             
             // Check for URL query parameters and jump to event AFTER events are loaded

@@ -106,7 +106,7 @@ describe('SessionRepository - Additional Coverage', () => {
 
       repository = new SessionRepository([{ type: 'copilot', dir: sourceDir }]);
 
-      const sessions = await repository.findAll();
+      await repository.findAll();
 
       // Should only process valid-session
       expect(fileUtils.shouldSkipEntry).toHaveBeenCalledWith('valid-session');
@@ -548,7 +548,7 @@ describe('SessionRepository - Additional Coverage', () => {
         return originalReaddir(dir);
       });
 
-      const sessions = await repository.findAll();
+      await repository.findAll();
 
       // Should have logged error but still returned copilot sessions
       expect(consoleErrorSpy).toHaveBeenCalledWith(

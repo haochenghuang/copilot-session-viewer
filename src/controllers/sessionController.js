@@ -154,15 +154,36 @@ class SessionController {
         return res.status(400).json({ error: 'Invalid session ID' });
       }
 
+      // Check if pagination is requested
+      const isPaginationRequested = req.query.limit !== undefined || req.query.offset !== undefined;
+
+      // Parse pagination parameters (only if requested)
+      let limit, offset, result;
+      
+      if (isPaginationRequested) {
+        limit = parseInt(req.query.limit) || 100; // Default 100 events per page
+        offset = parseInt(req.query.offset) || 0;
+
+        // Validate pagination parameters
+        if (limit < 1 || limit > 1000) {
+          return res.status(400).json({ error: 'Limit must be between 1 and 1000' });
+        }
+        if (offset < 0) {
+          return res.status(400).json({ error: 'Offset must be non-negative' });
+        }
+      }
+
       // Get session metadata for ETag generation
       const session = await this.sessionService.getSessionById(sessionId);
       if (!session) {
         return res.status(404).json({ error: 'Session not found' });
       }
 
-      // Generate ETag from session ID + timestamp
+      // Generate ETag from session ID + timestamp + pagination params (if used)
       const crypto = require('crypto');
-      const etagBase = `${sessionId}-${session.updated || session.created}`;
+      const etagBase = isPaginationRequested 
+        ? `${sessionId}-${session.updated || session.created}-${limit}-${offset}`
+        : `${sessionId}-${session.updated || session.created}`;
       const etag = crypto.createHash('md5').update(etagBase).digest('hex');
 
       // Check If-None-Match header (client cache)
@@ -171,8 +192,14 @@ class SessionController {
         return res.status(304).end(); // Not Modified - use cached version
       }
 
-      // Load events
-      const events = await this.sessionService.getSessionEvents(sessionId);
+      // Load events (with or without pagination)
+      if (isPaginationRequested) {
+        result = await this.sessionService.getSessionEvents(sessionId, { limit, offset });
+      } else {
+        // Load all events (backward compatibility)
+        const events = await this.sessionService.getSessionEvents(sessionId);
+        result = events; // Direct array
+      }
 
       // Set caching headers
       res.set({
@@ -181,7 +208,20 @@ class SessionController {
         'Vary': 'Accept-Encoding'
       });
 
-      res.json(events);
+      // Return response (paginated or plain array)
+      if (isPaginationRequested) {
+        res.json({
+          events: result.events,
+          pagination: {
+            total: result.total,
+            limit,
+            offset,
+            hasMore: offset + limit < result.total
+          }
+        });
+      } else {
+        res.json(result); // Plain array for backward compatibility
+      }
     } catch (err) {
       console.error('Error loading events:', err);
       res.status(500).json({ error: 'Error loading events' });

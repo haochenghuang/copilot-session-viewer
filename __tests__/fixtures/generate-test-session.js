@@ -34,7 +34,8 @@ const events = [
     type: 'user.message',
     timestamp: Date.now() - 55000,
     data: {
-      content: 'Hello, can you help me with a coding task?'
+      content: 'Hello, can you help me with a coding task?',
+      message: 'Hello, can you help me with a coding task?'
     }
   },
   {
@@ -47,27 +48,23 @@ const events = [
     timestamp: Date.now() - 50000,
     data: {
       content: 'Of course! I\'d be happy to help you with your coding task.',
-      toolRequests: []
-    }
-  },
-  {
-    type: 'tool.execution_start',
-    timestamp: Date.now() - 48000,
-    parentId: 'msg-001',
-    data: {
-      toolCallId: 'tool-001',
-      tool: 'read',
-      toolName: 'read',
-      arguments: { path: 'test.js' }
-    }
-  },
-  {
-    type: 'tool.execution_complete',
-    timestamp: Date.now() - 45000,
-    parentId: 'msg-001',
-    data: {
-      toolCallId: 'tool-001',
-      result: 'console.log("Hello World");'
+      message: 'Of course! I\'d be happy to help you with your coding task.',
+      tools: [
+        {
+          id: 'tool-001',
+          name: 'read',
+          startTime: new Date(Date.now() - 48000).toISOString(),
+          endTime: new Date(Date.now() - 45000).toISOString(),
+          status: 'completed',
+          input: { path: 'test.js' },
+          result: { content: 'console.log("Hello World");' },
+          error: null,
+          metadata: {
+            source: 'copilot',
+            duration: 3000
+          }
+        }
+      ]
     }
   },
   {
