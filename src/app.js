@@ -21,7 +21,7 @@ function createApp(options = {}) {
 
   // Create controller instances (with optional dependency injection)
   const sessionController = new SessionController(options.sessionService);
-  const insightController = new InsightController(options.insightService);
+  const insightController = new InsightController(options.insightService, options.sessionService);
   const uploadController = new UploadController();
 
   // Minimal security headers for local development tool

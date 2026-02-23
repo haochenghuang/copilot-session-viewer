@@ -254,7 +254,7 @@ describe('Server API Endpoints', () => {
         .expect(200);
 
       expect(response.body.status).toBe('completed');
-      expect(mockInsightService.generateInsight).toHaveBeenCalledWith('valid-session', false);
+      expect(mockInsightService.generateInsight).toHaveBeenCalledWith('valid-session', 'copilot', false);
     });
 
     it('should handle insight generation errors', async () => {

@@ -17,16 +17,46 @@ class InsightService {
   }
 
   /**
+   * Get CLI tool configuration based on session source
+   * @private
+   */
+  _getToolConfig(source) {
+    const configs = {
+      copilot: {
+        name: 'Copilot',
+        cli: 'copilot',
+        args: (tmpDir, prompt) => ['--config-dir', tmpDir, '--yolo', '-p', prompt]
+      },
+      claude: {
+        name: 'Claude Code',
+        cli: 'claude',
+        args: (_tmpDir, prompt) => ['-p', prompt, '--allow-dangerously-skip-permissions', '--dangerously-skip-permissions']
+      },
+      'pi-mono': {
+        name: 'Pi',
+        cli: 'pi',
+        args: (_tmpDir, prompt) => ['--yolo', '-p', prompt]
+      }
+    };
+
+    return configs[source] || configs.copilot; // fallback to copilot
+  }
+
+  /**
    * Generate or retrieve insight report
    * @param {string} sessionId - Session UUID
+   * @param {string} source - Session source: 'copilot', 'claude', or 'pi-mono'
    * @param {boolean} forceRegenerate - Force new generation
    * @returns {Promise<Object>} Insight status and report
    */
-  async generateInsight(sessionId, forceRegenerate = false) {
+  async generateInsight(sessionId, source = 'copilot', forceRegenerate = false) {
     const sessionPath = path.join(this.sessionDir, sessionId);
     const insightFile = path.join(sessionPath, 'agent-review.md');
     const lockFile = path.join(sessionPath, 'agent-review.md.lock');
     const eventsFile = path.join(sessionPath, 'events.jsonl');
+
+    const toolConfig = this._getToolConfig(source);
+    const toolName = toolConfig.name;
 
     // Check if complete insight exists
     if (!forceRegenerate) {
@@ -63,7 +93,7 @@ class InsightService {
             // Still valid, return generating status
             return {
               status: 'generating',
-              report: '# Generating Copilot Insight...\n\nAnother request is currently generating this insight. Please wait.',
+              report: `# Generating ${toolName} Insight...\n\nAnother request is currently generating this insight. Please wait.`,
               startedAt: lockStats.birthtime,
               lastUpdate: lockStats.mtime,
               ageMs: Date.now() - lockStats.birthtime.getTime()
@@ -106,75 +136,83 @@ class InsightService {
     }
 
     // Start generation
-    await this._spawnCopilotProcess(sessionId, sessionPath, eventsFile, insightFile, lockFile);
+    await this._spawnAnalysisProcess(sessionId, sessionPath, eventsFile, insightFile, lockFile, toolConfig);
 
     return {
       status: 'generating',
-      report: '# Generating Copilot Insight...\n\nAnalysis in progress. Please wait.',
+      report: `# Generating ${toolName} Insight...\n\nAnalysis in progress. Please wait.`,
       startedAt: new Date()
     };
   }
 
   /**
-   * Spawn copilot process safely (no shell)
+   * Spawn analysis process safely (no shell)
    * @private
    */
-  async _spawnCopilotProcess(sessionId, sessionPath, eventsFile, insightFile, lockFile) {
+  async _spawnAnalysisProcess(sessionId, sessionPath, eventsFile, insightFile, lockFile, toolConfig) {
     const tmpDir = path.join(os.tmpdir(), `agent-review-${sessionId}-${Date.now()}`);
     await fs.mkdir(tmpDir, { recursive: true });
 
     const prompt = this._buildPrompt(insightFile);
     const outputFile = path.join(sessionPath, 'agent-review.md.tmp');
 
-    // Spawn copilot directly (no shell)
-    const copilotPath = 'copilot';
-    const args = ['--config-dir', tmpDir, '--yolo', '-p', prompt];
+    // Spawn analysis tool directly (no shell)
+    const cliPath = toolConfig.cli;
+    const args = toolConfig.args(tmpDir, prompt);
     
-    // Use system PATH - copilot should be in the user's PATH
-    const copilotProcess = spawn(copilotPath, args, {
+    console.log(`🤖 Starting ${toolConfig.name} analysis: ${cliPath} ${args.slice(0, 2).join(' ')}...`);
+    
+    // Use system PATH - CLI should be in the user's PATH
+    const analysisProcess = spawn(cliPath, args, {
       env: { ...process.env },
       cwd: sessionPath,
       stdio: ['pipe', 'pipe', 'pipe']
     });
 
     // Register for cleanup
-    processManager.register(copilotProcess, { name: `insight-${sessionId}` });
+    processManager.register(analysisProcess, { name: `insight-${sessionId}` });
 
-    // Pipe events file to stdin
-    const eventsStream = fsSync.createReadStream(eventsFile);
-    // Handle EPIPE: if copilot exits before stdin is fully written, suppress the error
-    copilotProcess.stdin.on('error', (err) => {
-      if (err.code === 'EPIPE') {
-        eventsStream.destroy();
-      } else {
-        console.error('❌ stdin error:', err);
-      }
-    });
-    eventsStream.pipe(copilotProcess.stdin);
+    // Pipe events file to stdin (for tools that read from stdin like copilot)
+    // Claude Code and Pi read files directly, so they don't need stdin
+    if (toolConfig.cli === 'copilot') {
+      const eventsStream = fsSync.createReadStream(eventsFile);
+      // Handle EPIPE: if process exits before stdin is fully written, suppress the error
+      analysisProcess.stdin.on('error', (err) => {
+        if (err.code === 'EPIPE') {
+          eventsStream.destroy();
+        } else {
+          console.error('❌ stdin error:', err);
+        }
+      });
+      eventsStream.pipe(analysisProcess.stdin);
+    } else {
+      // Close stdin for tools that don't need it
+      analysisProcess.stdin.end();
+    }
 
     // Capture output
     const outputStream = fsSync.createWriteStream(outputFile);
-    copilotProcess.stdout.pipe(outputStream);
+    analysisProcess.stdout.pipe(outputStream);
 
     // Capture stderr with size limit
     const stderrChunks = [];
     let stderrSize = 0;
     const MAX_STDERR = 64 * 1024; // 64KB cap
 
-    copilotProcess.stderr.on('data', (data) => {
+    analysisProcess.stderr.on('data', (data) => {
       if (stderrSize < MAX_STDERR) {
         stderrChunks.push(data);
         stderrSize += data.length;
       }
     });
 
-    copilotProcess.on('close', async (code) => {
+    analysisProcess.on('close', async (code) => {
       try {
         outputStream.end();
 
         if (code !== 0) {
           const stderr = Buffer.concat(stderrChunks).toString('utf-8').slice(0, MAX_STDERR);
-          console.error('❌ Copilot CLI failed:', stderr);
+          console.error(`❌ ${toolConfig.name} CLI failed:`, stderr);
           await fs.writeFile(insightFile,
             `# ❌ Generation Failed\n\n\`\`\`\n${stderr}\n\`\`\`\n`,
             'utf-8'
@@ -212,8 +250,8 @@ class InsightService {
       }
     });
 
-    copilotProcess.on('error', async (err) => {
-      console.error('❌ Failed to spawn copilot:', err);
+    analysisProcess.on('error', async (err) => {
+      console.error(`❌ Failed to spawn ${toolConfig.name}:`, err);
       await fs.unlink(lockFile).catch(() => {});
       await fs.rm(tmpDir, { recursive: true, force: true }).catch(() => {});
     });

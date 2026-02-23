@@ -88,7 +88,7 @@ describe('InsightController - Additional Coverage', () => {
 
       await controller.generateInsight(mockReq, mockRes);
 
-      expect(mockInsightService.generateInsight).toHaveBeenCalledWith('valid-session-id', true);
+      expect(mockInsightService.generateInsight).toHaveBeenCalledWith('valid-session-id', 'copilot', true);
       expect(mockRes.json).toHaveBeenCalledWith({ status: 'generating' });
     });
 
@@ -99,7 +99,7 @@ describe('InsightController - Additional Coverage', () => {
 
       await controller.generateInsight(mockReq, mockRes);
 
-      expect(mockInsightService.generateInsight).toHaveBeenCalledWith('valid-session-id', false);
+      expect(mockInsightService.generateInsight).toHaveBeenCalledWith('valid-session-id', 'copilot', false);
       expect(mockRes.json).toHaveBeenCalledWith({ status: 'completed' });
     });
 
@@ -110,7 +110,7 @@ describe('InsightController - Additional Coverage', () => {
 
       await controller.generateInsight(mockReq, mockRes);
 
-      expect(mockInsightService.generateInsight).toHaveBeenCalledWith('valid-session-id', false);
+      expect(mockInsightService.generateInsight).toHaveBeenCalledWith('valid-session-id', 'copilot', false);
     });
 
     it('should handle missing force field in body', async () => {
@@ -120,7 +120,7 @@ describe('InsightController - Additional Coverage', () => {
 
       await controller.generateInsight(mockReq, mockRes);
 
-      expect(mockInsightService.generateInsight).toHaveBeenCalledWith('valid-session-id', false);
+      expect(mockInsightService.generateInsight).toHaveBeenCalledWith('valid-session-id', 'copilot', false);
     });
 
     it('should handle error with message', async () => {
@@ -381,7 +381,7 @@ describe('InsightController - Additional Coverage', () => {
       mockInsightService.generateInsight.mockResolvedValue({ status: 'generating' });
       await controller.generateInsight(mockReq, mockRes);
 
-      expect(mockInsightService.generateInsight).toHaveBeenCalledWith(sessionId, true);
+      expect(mockInsightService.generateInsight).toHaveBeenCalledWith(sessionId, 'copilot', true);
     });
   });
 });

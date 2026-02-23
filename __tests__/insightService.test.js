@@ -92,7 +92,7 @@ describe('InsightService', () => {
       const reportContent = '# Test Report\nThis is a test report.';
       await fs.writeFile(insightFile, reportContent);
 
-      const result = await service.generateInsight(sessionId, false);
+      const result = await service.generateInsight(sessionId, 'copilot', false);
 
       expect(result.status).toBe('completed');
       expect(result.report).toBe(reportContent);
@@ -114,7 +114,7 @@ describe('InsightService', () => {
       setupFileMocks();
       spawn.mockReturnValue(mockProcess);
 
-      const result = await service.generateInsight(sessionId, true);
+      const result = await service.generateInsight(sessionId, 'copilot', true);
 
       expect(result.status).toBe('generating');
       expect(spawn).toHaveBeenCalled();
@@ -137,7 +137,7 @@ describe('InsightService', () => {
       setupFileMocks();
       spawn.mockReturnValue(mockProcess);
 
-      const result = await service.generateInsight(sessionId, true);
+      const result = await service.generateInsight(sessionId, 'copilot', true);
 
       expect(result.status).toBe('generating');
       expect(spawn).toHaveBeenCalled();
@@ -154,7 +154,7 @@ describe('InsightService', () => {
         pid: 12345
       }));
 
-      const result = await service.generateInsight(sessionId, false);
+      const result = await service.generateInsight(sessionId, 'copilot', false);
 
       expect(result.status).toBe('generating');
       expect(result.report).toContain('Another request is currently generating');
@@ -185,7 +185,7 @@ describe('InsightService', () => {
 
       const consoleLogSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
 
-      const result = await service.generateInsight(sessionId, false);
+      const result = await service.generateInsight(sessionId, 'copilot', false);
 
       expect(result.status).toBe('generating');
       expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining('Removing stale lock file'));
@@ -197,7 +197,7 @@ describe('InsightService', () => {
       const sessionPath = path.join(tmpDir, sessionId);
       await fs.mkdir(sessionPath, { recursive: true });
 
-      await expect(service.generateInsight(sessionId, false)).rejects.toThrow('Events file not found');
+      await expect(service.generateInsight(sessionId, 'copilot', false)).rejects.toThrow('Events file not found');
     });
 
     it('should spawn copilot process correctly', async () => {
@@ -211,7 +211,7 @@ describe('InsightService', () => {
       setupFileMocks();
       spawn.mockReturnValue(mockProcess);
 
-      await service.generateInsight(sessionId, false);
+      await service.generateInsight(sessionId, 'copilot', false);
 
       expect(spawn).toHaveBeenCalledWith(
         'copilot',
@@ -235,7 +235,7 @@ describe('InsightService', () => {
       setupFileMocks();
       spawn.mockReturnValue(mockProcess);
 
-      const result = await service.generateInsight(sessionId, false);
+      const result = await service.generateInsight(sessionId, 'copilot', false);
 
       expect(result.status).toBe('generating');
       expect(spawn).toHaveBeenCalled();
@@ -252,7 +252,7 @@ describe('InsightService', () => {
       setupFileMocks();
       spawn.mockReturnValue(mockProcess);
 
-      const result = await service.generateInsight(sessionId, false);
+      const result = await service.generateInsight(sessionId, 'copilot', false);
 
       expect(result.status).toBe('generating');
       expect(spawn).toHaveBeenCalled();
@@ -277,7 +277,7 @@ describe('InsightService', () => {
 
       const consoleLogSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
 
-      await service.generateInsight(sessionId, false);
+      await service.generateInsight(sessionId, 'copilot', false);
 
       await new Promise(resolve => setTimeout(resolve, 10));
 
@@ -310,7 +310,7 @@ describe('InsightService', () => {
 
       const consoleLogSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
 
-      await service.generateInsight(sessionId, false);
+      await service.generateInsight(sessionId, 'copilot', false);
 
       await new Promise(resolve => setTimeout(resolve, 10));
 
@@ -344,7 +344,7 @@ describe('InsightService', () => {
         return destination;
       });
 
-      await service.generateInsight(sessionId, false);
+      await service.generateInsight(sessionId, 'copilot', false);
 
       await new Promise(resolve => setTimeout(resolve, 20));
 
@@ -369,7 +369,7 @@ describe('InsightService', () => {
         return destination;
       });
 
-      await service.generateInsight(sessionId, false);
+      await service.generateInsight(sessionId, 'copilot', false);
 
       await new Promise(resolve => setTimeout(resolve, 20));
 
@@ -394,7 +394,7 @@ describe('InsightService', () => {
 
       const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
 
-      await service.generateInsight(sessionId, false);
+      await service.generateInsight(sessionId, 'copilot', false);
 
       await new Promise(resolve => setTimeout(resolve, 10));
 
@@ -434,7 +434,7 @@ describe('InsightService', () => {
 
       const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
 
-      await service.generateInsight(sessionId, false);
+      await service.generateInsight(sessionId, 'copilot', false);
 
       await new Promise(resolve => setTimeout(resolve, 10));
 
@@ -467,7 +467,7 @@ describe('InsightService', () => {
 
       const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
 
-      await service.generateInsight(sessionId, false);
+      await service.generateInsight(sessionId, 'copilot', false);
 
       await new Promise(resolve => setTimeout(resolve, 10));
 
@@ -476,7 +476,7 @@ describe('InsightService', () => {
 
       await new Promise(resolve => setTimeout(resolve, 50));
 
-      expect(consoleErrorSpy).toHaveBeenCalledWith('❌ Failed to spawn copilot:', expect.any(Error));
+      expect(consoleErrorSpy).toHaveBeenCalledWith('❌ Failed to spawn Copilot:', expect.any(Error));
 
       consoleErrorSpy.mockRestore();
     });
@@ -505,7 +505,7 @@ describe('InsightService', () => {
         return originalReadFile(filePath, ...args);
       });
 
-      await service.generateInsight(sessionId, false);
+      await service.generateInsight(sessionId, 'copilot', false);
 
       await new Promise(resolve => setTimeout(resolve, 10));
 

@@ -4,12 +4,20 @@ const path = require('path');
 const os = require('os');
 
 class InsightController {
-  constructor(insightService = null) {
+  constructor(insightService = null, sessionService = null) {
     if (insightService) {
       this.insightService = insightService;
     } else {
       const SESSION_DIR = process.env.SESSION_DIR || path.join(os.homedir(), '.copilot', 'session-state');
       this.insightService = new InsightService(SESSION_DIR);
+    }
+    
+    // SessionService for getting session metadata (source)
+    if (sessionService) {
+      this.sessionService = sessionService;
+    } else {
+      const SessionService = require('../services/sessionService');
+      this.sessionService = new SessionService();
     }
   }
 
@@ -23,7 +31,19 @@ class InsightController {
         return res.status(400).json({ error: 'Invalid session ID' });
       }
 
-      const result = await this.insightService.generateInsight(sessionId, forceRegenerate);
+      // Get session to determine source (copilot/claude/pi-mono)
+      let sessionSource = 'copilot'; // default
+      try {
+        const session = await this.sessionService.getSessionById(sessionId);
+        if (session && session.source) {
+          sessionSource = session.source;
+        }
+      } catch (_err) {
+        // Fall back to default if session not found
+        console.warn(`Could not determine session source for ${sessionId}, using default: copilot`);
+      }
+
+      const result = await this.insightService.generateInsight(sessionId, sessionSource, forceRegenerate);
       res.json(result);
     } catch (err) {
       console.error('Error generating insight:', err);
