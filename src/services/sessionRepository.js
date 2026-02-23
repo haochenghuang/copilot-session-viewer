@@ -21,18 +21,23 @@ class SessionRepository {
       this.sources = sessionDirs;
     } else {
       // Default: Copilot + Claude + Pi-Mono
+      // Support environment variables for each source (useful for testing/CI)
       this.sources = [
         {
           type: 'copilot',
-          dir: path.join(os.homedir(), '.copilot', 'session-state')
+          dir: process.env.COPILOT_SESSION_DIR || 
+               process.env.SESSION_DIR || // Legacy fallback
+               path.join(os.homedir(), '.copilot', 'session-state')
         },
         {
           type: 'claude',
-          dir: path.join(os.homedir(), '.claude', 'projects')
+          dir: process.env.CLAUDE_SESSION_DIR || 
+               path.join(os.homedir(), '.claude', 'projects')
         },
         {
           type: 'pi-mono',
-          dir: path.join(os.homedir(), '.pi', 'agent', 'sessions')
+          dir: process.env.PI_MONO_SESSION_DIR || 
+               path.join(os.homedir(), '.pi', 'agent', 'sessions')
         }
       ];
     }
