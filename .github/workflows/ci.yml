@@ -37,11 +37,16 @@ jobs:
       - name: Run unit tests
         run: npm test
       
-      - name: Setup test session directory
-        run: mkdir -p ~/.copilot/session-state
+      - name: Setup test session directories
+        run: |
+          mkdir -p ~/.copilot/session-state
+          mkdir -p ~/.claude/projects
+          mkdir -p ~/.pi/agent/sessions
       
-      - name: Generate test session data
-        run: node __tests__/fixtures/generate-test-session.js
+      - name: Generate test session data (all sources)
+        run: |
+          node __tests__/fixtures/generate-test-session.js
+          node __tests__/fixtures/create-multi-source-mock.js
       
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium
