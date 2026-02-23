@@ -19,14 +19,9 @@ class UploadController {
       'pi-mono': path.join(os.homedir(), '.pi', 'agent', 'sessions')
     };
 
-    this.initializeUploadDir();
+    // Don't create uploadDir here - multer's DiskStorage will handle it
+    // This avoids EEXIST errors when multiple tests run in parallel
     this.upload = this.createMulterInstance();
-  }
-
-  initializeUploadDir() {
-    if (!fs.existsSync(this.uploadDir)) {
-      fs.mkdirSync(this.uploadDir, { recursive: true });
-    }
   }
 
   createMulterInstance() {

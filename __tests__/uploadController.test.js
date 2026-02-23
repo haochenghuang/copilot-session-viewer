@@ -178,11 +178,6 @@ describe('UploadController', () => {
       expect(controller.uploadDir).toBe(path.join(os.tmpdir(), 'copilot-session-uploads'));
     });
 
-    it('should create upload directory if it does not exist', () => {
-      const uploadDir = path.join(os.tmpdir(), 'copilot-session-uploads');
-      expect(fs.existsSync(uploadDir)).toBe(true);
-    });
-
     it('should create multer instance with correct configuration', () => {
       expect(controller.upload).toBeDefined();
       expect(typeof controller.getUploadMiddleware).toBe('function');
