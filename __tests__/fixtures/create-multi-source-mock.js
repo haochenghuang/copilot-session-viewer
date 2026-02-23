@@ -7,6 +7,7 @@
 const fs = require('fs').promises;
 const path = require('path');
 const os = require('os');
+const { randomUUID } = require('crypto');
 
 async function generateClaudeSession() {
   const claudeDir = path.join(os.homedir(), '.claude', 'projects');
@@ -15,32 +16,63 @@ async function generateClaudeSession() {
 
   await fs.mkdir(sessionPath, { recursive: true });
 
-  // Claude session events (simplified)
+  // Claude session events - correct format with uuid/parentUuid/sessionId
+  const timestamp = new Date('2026-02-20T10:00:00Z').toISOString();
+  const userUuid = randomUUID();
+  const assistantUuid = randomUUID();
+  const toolUuid = randomUUID();
+
   const events = [
     {
-      type: 'session.start',
-      timestamp: new Date('2026-02-20T10:00:00Z').toISOString(),
-      sessionId
+      type: 'user',
+      uuid: userUuid,
+      parentUuid: null,
+      sessionId,
+      timestamp,
+      version: '1.0.0',
+      cwd: '/home/test/project',
+      gitBranch: 'main',
+      message: {
+        role: 'user',
+        content: [{ type: 'text', text: 'Read the README file' }]
+      }
     },
     {
-      type: 'assistant.message',
+      type: 'assistant',
+      uuid: assistantUuid,
+      parentUuid: userUuid,
+      sessionId,
       timestamp: new Date('2026-02-20T10:00:05Z').toISOString(),
-      content: 'Hello from Claude Code! Let me help you with that.'
+      message: {
+        role: 'assistant',
+        model: 'claude-opus-4.6',
+        content: [{ type: 'text', text: 'I\'ll read the README file for you.' }]
+      }
     },
     {
-      type: 'tool.execution_start',
+      type: 'tool-use',
+      uuid: toolUuid,
+      parentUuid: assistantUuid,
+      sessionId,
       timestamp: new Date('2026-02-20T10:00:10Z').toISOString(),
-      tool: 'read_file',
-      arguments: { path: 'src/index.js' }
+      message: {
+        type: 'tool_use',
+        id: 'toolu_' + randomUUID(),
+        name: 'read_file',
+        input: { path: 'README.md' }
+      }
     },
     {
-      type: 'tool.execution_complete',
+      type: 'tool-result',
+      uuid: randomUUID(),
+      parentUuid: toolUuid,
+      sessionId,
       timestamp: new Date('2026-02-20T10:00:12Z').toISOString(),
-      result: { content: 'console.log("Hello World");' }
-    },
-    {
-      type: 'session.end',
-      timestamp: new Date('2026-02-20T10:05:00Z').toISOString()
+      message: {
+        type: 'tool_result',
+        tool_use_id: toolUuid,
+        content: '# Test Project\n\nThis is a test README.'
+      }
     }
   ];
 
@@ -60,37 +92,45 @@ async function generatePiSession() {
 
   await fs.mkdir(sessionPath, { recursive: true });
 
-  // Pi-Mono session events (simplified)
+  // Pi-Mono session events - correct format with timestamp and session metadata
   const events = [
     {
-      type: 'session.start',
-      timestamp: new Date('2026-02-21T14:00:00Z').toISOString(),
+      timestamp: new Date('2026-02-21T14:00:00Z').getTime(),
+      type: 'message',
+      role: 'user',
+      content: 'Create a simple React button component',
       sessionId
     },
     {
-      type: 'user.message',
-      timestamp: new Date('2026-02-21T14:00:05Z').toISOString(),
-      content: 'Build a React component'
+      timestamp: new Date('2026-02-21T14:00:05Z').getTime(),
+      type: 'message',
+      role: 'assistant',
+      content: 'I\'ll create a React button component for you.',
+      sessionId
     },
     {
-      type: 'assistant.message',
-      timestamp: new Date('2026-02-21T14:00:10Z').toISOString(),
-      content: 'I\'ll create a React component for you.'
+      timestamp: new Date('2026-02-21T14:00:10Z').getTime(),
+      type: 'tool_call',
+      tool: 'write_file',
+      args: {
+        path: 'Button.jsx',
+        content: 'export const Button = ({ label }) => <button>{label}</button>;'
+      },
+      sessionId
     },
     {
-      type: 'tool.execution_start',
-      timestamp: new Date('2026-02-21T14:00:15Z').toISOString(),
-      tool: 'create_file',
-      arguments: { path: 'Button.jsx', content: 'export const Button = () => <button>Click</button>;' }
+      timestamp: new Date('2026-02-21T14:00:12Z').getTime(),
+      type: 'tool_result',
+      tool: 'write_file',
+      result: { success: true, path: 'Button.jsx' },
+      sessionId
     },
     {
-      type: 'tool.execution_complete',
-      timestamp: new Date('2026-02-21T14:00:18Z').toISOString(),
-      result: { success: true }
-    },
-    {
-      type: 'session.end',
-      timestamp: new Date('2026-02-21T14:10:00Z').toISOString()
+      timestamp: new Date('2026-02-21T14:00:15Z').getTime(),
+      type: 'message',
+      role: 'assistant',
+      content: 'Done! Created Button.jsx component.',
+      sessionId
     }
   ];
 
