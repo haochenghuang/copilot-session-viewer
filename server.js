@@ -1,4 +1,3 @@
-const path = require('path');
 const createApp = require('./src/app');
 const config = require('./src/config');
 const processManager = require('./src/utils/processManager');
@@ -13,7 +12,7 @@ module.exports = app;
 if (require.main === module) {
   const server = app.listen(config.PORT, () => {
     console.log(`🚀 Copilot Session Viewer running at http://localhost:${config.PORT}`);
-    console.log(`📂 Session directories (env vars):`);
+    console.log('📂 Session directories (env vars):');
     console.log(`   COPILOT_SESSION_DIR=${process.env.COPILOT_SESSION_DIR || 'not set'}`);
     console.log(`   CLAUDE_SESSION_DIR=${process.env.CLAUDE_SESSION_DIR || 'not set'}`);
     console.log(`   PI_MONO_SESSION_DIR=${process.env.PI_MONO_SESSION_DIR || 'not set'}`);
@@ -30,7 +29,7 @@ if (require.main === module) {
         console.log(`   First 5: ${sessions.slice(0, 5).map(s => s.id + ' (' + s.source + ')').join(', ')}`);
       }
     }).catch(err => {
-      console.error(`❌ Error loading sessions:`, err.message);
+      console.error('❌ Error loading sessions:', err.message);
     });
   });
 
