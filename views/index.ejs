@@ -471,8 +471,7 @@
           <a class="import-link" id="importLink">Import session from zip</a>
         </div>
         <div class="filter-pills">
-          <button class="filter-pill active" data-source="all">All</button>
-          <button class="filter-pill" data-source="copilot">Copilot</button>
+          <button class="filter-pill active" data-source="copilot">Copilot</button>
           <button class="filter-pill" data-source="claude">Claude</button>
           <button class="filter-pill" data-source="pi-mono">Pi</button>
         </div>
@@ -515,7 +514,7 @@
     let isLoading = false;
 
     // Filter state
-    let currentSourceFilter = 'all';
+    let currentSourceFilter = 'copilot';
     // Load more sessions
     async function loadMoreSessions() {
       if (isLoading || !hasMore) return;
@@ -562,9 +561,6 @@
 
     // Get filtered sessions based on current filter
     function getFilteredSessions() {
-      if (currentSourceFilter === 'all') {
-        return allSessions;
-      }
       return allSessions.filter(session => session.source === currentSourceFilter);
     }
 
