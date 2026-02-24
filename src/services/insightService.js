@@ -72,7 +72,6 @@ class InsightService {
         // Try *_<sessionId>.jsonl (Pi-Mono format: YYYY-MM-DDTHH-mm-ss-SSSZ_<uuid>.jsonl)
         const entries = await fs.readdir(sessionPath);
         const piFile = entries.find(f => f.endsWith(`_${sessionId}.jsonl`));
-        console.log(`[DEBUG] Pi-Mono events file search: sessionId=${sessionId}, found=${piFile}, in directory=${sessionPath}`);
         if (piFile) {
           eventsFile = path.join(sessionPath, piFile);
         }
@@ -80,8 +79,6 @@ class InsightService {
     }
 
     const toolConfig = this._getToolConfig(source, sessionPath);
-    console.log(`[DEBUG] Starting insight generation: sessionId=${sessionId}, source=${source}, eventsFile=${eventsFile}`);
-    
     const toolName = toolConfig.name;
 
     // Check if complete insight exists
@@ -176,44 +173,11 @@ class InsightService {
    * @private
    */
   async _spawnAnalysisProcess(sessionPath, eventsFile, insightFile, lockFile, toolConfig) {
-    // Extract session ID: for Pi-Mono (format: timestamp_uuid.jsonl), extract UUID part;
-    // otherwise use directory name
-    const eventsBasename = path.basename(eventsFile, '.jsonl');
-    let sessionId;
-    if (eventsBasename.includes('_')) {
-      // Pi-Mono format: YYYY-MM-DDTHH-mm-ss-SSSZ_uuid → extract uuid
-      sessionId = eventsBasename.split('_').pop();
-    } else {
-      // Standard format: directory name is session ID
-      sessionId = path.basename(sessionPath);
-    }
-    
+    const sessionId = path.basename(sessionPath); // Extract session ID from path
     const tmpDir = path.join(os.tmpdir(), `agent-review-${sessionId}-${Date.now()}`);
     await fs.mkdir(tmpDir, { recursive: true});
 
-    // For Pi-Mono: create isolated directory with only this session's events file
-    let workingDir = sessionPath;
-    let workingEventsFile = eventsFile;
-    
-    if (toolConfig.cli === 'pi') {
-      // Pi-Mono: sessionPath might contain multiple .jsonl files
-      // Create temporary isolated directory with symlink to events file
-      workingDir = path.join(tmpDir, 'session');
-      await fs.mkdir(workingDir, { recursive: true });
-      
-      const eventsFilename = path.basename(eventsFile);
-      workingEventsFile = path.join(workingDir, 'events.jsonl'); // Normalize to events.jsonl
-      
-      // Copy (not symlink) to avoid permission issues
-      await fs.copyFile(eventsFile, workingEventsFile);
-      
-      console.log(`[PI-MONO] Created isolated directory: ${workingDir}`);
-      console.log(`[PI-MONO] Copied ${eventsFilename} → events.jsonl`);
-    }
-
-    // For Pi-Mono, pass workingDir as outputPath to keep prompt paths consistent
-    const promptOutputPath = toolConfig.cli === 'pi' ? path.join(workingDir, 'agent-review.md') : insightFile;
-    const prompt = this._buildPrompt(promptOutputPath, workingEventsFile);
+    const prompt = this._buildPrompt(insightFile, eventsFile);
     const outputFile = path.join(sessionPath, 'agent-review.md.tmp');
 
     // Spawn analysis tool directly (no shell)
@@ -222,12 +186,11 @@ class InsightService {
     
     console.log(`🤖 Starting ${toolConfig.name} analysis: ${cliPath} ${args.slice(0, 2).join(' ')}...`);
     console.log(`📋 Args count: ${args.length}, prompt length: ${prompt.length} chars`);
-    console.log(`📂 Working directory: ${workingDir}`);
     
     // Use system PATH - CLI should be in the user's PATH
     const analysisProcess = spawn(cliPath, args, {
       env: { ...process.env },
-      cwd: workingDir, // Use workingDir (isolated for Pi-Mono, original for others)
+      cwd: sessionPath,
       stdio: ['pipe', 'pipe', 'pipe']
     });
 
@@ -288,30 +251,13 @@ class InsightService {
           // The agent was told to write directly to insightFile.
           // Check if it did; if not, fall back to cleaning stdout from .tmp.
           let hasDirectOutput = false;
-          let reportContent = null;
-          
           try {
             const direct = await fs.readFile(insightFile, 'utf-8');
             if (direct && direct.trim().length > 50) {
               hasDirectOutput = true;
-              reportContent = direct;
               console.log(`✅ Insight generated for session ${sessionId} (agent wrote directly)`);
             }
-          } catch (_e) {
-            // For Pi-Mono, check isolated working directory
-            if (toolConfig.cli === 'pi' && workingDir) {
-              try {
-                const isolatedOutput = path.join(workingDir, 'agent-review.md');
-                reportContent = await fs.readFile(isolatedOutput, 'utf-8');
-                if (reportContent && reportContent.trim().length > 50) {
-                  hasDirectOutput = true;
-                  // Copy from isolated dir to original location
-                  await fs.writeFile(insightFile, reportContent, 'utf-8');
-                  console.log(`✅ Insight generated for session ${sessionId} (Pi-Mono: copied from isolated dir)`);
-                }
-              } catch (_e2) { /* isolated file doesn't exist either */ }
-            }
-          }
+          } catch (_e) { /* file doesn't exist */ }
 
           if (!hasDirectOutput) {
             let report = await fs.readFile(outputFile, 'utf-8');
