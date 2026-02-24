@@ -93,6 +93,7 @@ describe('Session', () => {
         source: 'copilot',  // Added source field
         sourceName: 'Copilot',  // Added display metadata
         sourceBadgeClass: 'source-copilot',  // Added display metadata
+        directory: null,  // Added directory field
         workspace: { repo: 'test' },
         createdAt: undefined,
         updatedAt: undefined,

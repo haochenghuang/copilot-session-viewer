@@ -3,6 +3,7 @@ const InsightController = require('../src/controllers/insightController');
 describe('InsightController - Additional Coverage', () => {
   let controller;
   let mockInsightService;
+  let mockSessionService;
   let mockReq;
   let mockRes;
   let originalEnv;
@@ -16,6 +17,11 @@ describe('InsightController - Additional Coverage', () => {
       generateInsight: jest.fn(),
       getInsightStatus: jest.fn(),
       deleteInsight: jest.fn()
+    };
+
+    // Create mock session service
+    mockSessionService = {
+      getSessionById: jest.fn()
     };
 
     mockReq = {
@@ -37,7 +43,7 @@ describe('InsightController - Additional Coverage', () => {
 
   describe('constructor', () => {
     it('should use provided insightService when passed', () => {
-      controller = new InsightController(mockInsightService);
+      controller = new InsightController(mockInsightService, mockSessionService);
 
       expect(controller.insightService).toBe(mockInsightService);
     });
@@ -45,7 +51,7 @@ describe('InsightController - Additional Coverage', () => {
     it('should create default insightService when not provided', () => {
       process.env.SESSION_DIR = '/custom/path';
 
-      controller = new InsightController(null);
+      controller = new InsightController(null, mockSessionService);
 
       expect(controller.insightService).toBeDefined();
     });
@@ -53,14 +59,14 @@ describe('InsightController - Additional Coverage', () => {
     it('should use default SESSION_DIR when env var not set', () => {
       delete process.env.SESSION_DIR;
 
-      controller = new InsightController(null);
+      controller = new InsightController(null, mockSessionService);
 
       expect(controller.insightService).toBeDefined();
       // The default path should be ~/.copilot/session-state
     });
 
     it('should handle undefined insightService parameter', () => {
-      controller = new InsightController(undefined);
+      controller = new InsightController(undefined, mockSessionService);
 
       expect(controller.insightService).toBeDefined();
     });
@@ -68,7 +74,14 @@ describe('InsightController - Additional Coverage', () => {
 
   describe('generateInsight', () => {
     beforeEach(() => {
-      controller = new InsightController(mockInsightService);
+      controller = new InsightController(mockInsightService, mockSessionService);
+      
+      // Mock session with all required fields
+      mockSessionService.getSessionById.mockResolvedValue({
+        id: 'valid-session-id',
+        source: 'copilot',
+        directory: '/path/to/session'
+      });
     });
 
     it('should handle invalid session ID', async () => {
@@ -88,7 +101,7 @@ describe('InsightController - Additional Coverage', () => {
 
       await controller.generateInsight(mockReq, mockRes);
 
-      expect(mockInsightService.generateInsight).toHaveBeenCalledWith('valid-session-id', 'copilot', true);
+      expect(mockInsightService.generateInsight).toHaveBeenCalledWith('valid-session-id', '/path/to/session', 'copilot', true);
       expect(mockRes.json).toHaveBeenCalledWith({ status: 'generating' });
     });
 
@@ -99,7 +112,7 @@ describe('InsightController - Additional Coverage', () => {
 
       await controller.generateInsight(mockReq, mockRes);
 
-      expect(mockInsightService.generateInsight).toHaveBeenCalledWith('valid-session-id', 'copilot', false);
+      expect(mockInsightService.generateInsight).toHaveBeenCalledWith('valid-session-id', '/path/to/session', 'copilot', false);
       expect(mockRes.json).toHaveBeenCalledWith({ status: 'completed' });
     });
 
@@ -110,7 +123,7 @@ describe('InsightController - Additional Coverage', () => {
 
       await controller.generateInsight(mockReq, mockRes);
 
-      expect(mockInsightService.generateInsight).toHaveBeenCalledWith('valid-session-id', 'copilot', false);
+      expect(mockInsightService.generateInsight).toHaveBeenCalledWith('valid-session-id', '/path/to/session', 'copilot', false);
     });
 
     it('should handle missing force field in body', async () => {
@@ -120,7 +133,33 @@ describe('InsightController - Additional Coverage', () => {
 
       await controller.generateInsight(mockReq, mockRes);
 
-      expect(mockInsightService.generateInsight).toHaveBeenCalledWith('valid-session-id', 'copilot', false);
+      expect(mockInsightService.generateInsight).toHaveBeenCalledWith('valid-session-id', '/path/to/session', 'copilot', false);
+    });
+
+    it('should handle session not found', async () => {
+      mockReq.params.id = 'nonexistent-session';
+      mockSessionService.getSessionById.mockResolvedValue(null);
+
+      await controller.generateInsight(mockReq, mockRes);
+
+      expect(mockRes.status).toHaveBeenCalledWith(404);
+      expect(mockRes.json).toHaveBeenCalledWith({ error: 'Session not found' });
+      expect(mockInsightService.generateInsight).not.toHaveBeenCalled();
+    });
+
+    it('should handle session without directory', async () => {
+      mockReq.params.id = 'valid-session-id';
+      mockSessionService.getSessionById.mockResolvedValue({
+        id: 'valid-session-id',
+        source: 'copilot',
+        directory: null
+      });
+
+      await controller.generateInsight(mockReq, mockRes);
+
+      expect(mockRes.status).toHaveBeenCalledWith(400);
+      expect(mockRes.json).toHaveBeenCalledWith({ error: 'Session directory not available' });
+      expect(mockInsightService.generateInsight).not.toHaveBeenCalled();
     });
 
     it('should handle error with message', async () => {
@@ -169,7 +208,14 @@ describe('InsightController - Additional Coverage', () => {
 
   describe('getInsightStatus', () => {
     beforeEach(() => {
-      controller = new InsightController(mockInsightService);
+      controller = new InsightController(mockInsightService, mockSessionService);
+      
+      // Mock session with all required fields
+      mockSessionService.getSessionById.mockResolvedValue({
+        id: 'valid-session-id',
+        source: 'copilot',
+        directory: '/path/to/session'
+      });
     });
 
     it('should handle invalid session ID', async () => {
@@ -188,8 +234,34 @@ describe('InsightController - Additional Coverage', () => {
 
       await controller.getInsightStatus(mockReq, mockRes);
 
-      expect(mockInsightService.getInsightStatus).toHaveBeenCalledWith('valid-session-id');
+      expect(mockInsightService.getInsightStatus).toHaveBeenCalledWith('valid-session-id', '/path/to/session', 'copilot');
       expect(mockRes.json).toHaveBeenCalledWith({ status: 'completed', report: 'data' });
+    });
+
+    it('should handle session not found', async () => {
+      mockReq.params.id = 'nonexistent-session';
+      mockSessionService.getSessionById.mockResolvedValue(null);
+
+      await controller.getInsightStatus(mockReq, mockRes);
+
+      expect(mockRes.status).toHaveBeenCalledWith(404);
+      expect(mockRes.json).toHaveBeenCalledWith({ error: 'Session not found' });
+      expect(mockInsightService.getInsightStatus).not.toHaveBeenCalled();
+    });
+
+    it('should handle session without directory', async () => {
+      mockReq.params.id = 'valid-session-id';
+      mockSessionService.getSessionById.mockResolvedValue({
+        id: 'valid-session-id',
+        source: 'copilot',
+        directory: null
+      });
+
+      await controller.getInsightStatus(mockReq, mockRes);
+
+      expect(mockRes.status).toHaveBeenCalledWith(400);
+      expect(mockRes.json).toHaveBeenCalledWith({ error: 'Session directory not available' });
+      expect(mockInsightService.getInsightStatus).not.toHaveBeenCalled();
     });
 
     it('should handle error when getting status', async () => {
@@ -222,7 +294,14 @@ describe('InsightController - Additional Coverage', () => {
 
   describe('deleteInsight', () => {
     beforeEach(() => {
-      controller = new InsightController(mockInsightService);
+      controller = new InsightController(mockInsightService, mockSessionService);
+      
+      // Mock session with all required fields
+      mockSessionService.getSessionById.mockResolvedValue({
+        id: 'valid-session-id',
+        source: 'copilot',
+        directory: '/path/to/session'
+      });
     });
 
     it('should handle invalid session ID', async () => {
@@ -241,8 +320,34 @@ describe('InsightController - Additional Coverage', () => {
 
       await controller.deleteInsight(mockReq, mockRes);
 
-      expect(mockInsightService.deleteInsight).toHaveBeenCalledWith('valid-session-id');
+      expect(mockInsightService.deleteInsight).toHaveBeenCalledWith('valid-session-id', '/path/to/session', 'copilot');
       expect(mockRes.json).toHaveBeenCalledWith({ success: true });
+    });
+
+    it('should handle session not found', async () => {
+      mockReq.params.id = 'nonexistent-session';
+      mockSessionService.getSessionById.mockResolvedValue(null);
+
+      await controller.deleteInsight(mockReq, mockRes);
+
+      expect(mockRes.status).toHaveBeenCalledWith(404);
+      expect(mockRes.json).toHaveBeenCalledWith({ error: 'Session not found' });
+      expect(mockInsightService.deleteInsight).not.toHaveBeenCalled();
+    });
+
+    it('should handle session without directory', async () => {
+      mockReq.params.id = 'valid-session-id';
+      mockSessionService.getSessionById.mockResolvedValue({
+        id: 'valid-session-id',
+        source: 'copilot',
+        directory: null
+      });
+
+      await controller.deleteInsight(mockReq, mockRes);
+
+      expect(mockRes.status).toHaveBeenCalledWith(400);
+      expect(mockRes.json).toHaveBeenCalledWith({ error: 'Session directory not available' });
+      expect(mockInsightService.deleteInsight).not.toHaveBeenCalled();
     });
 
     it('should handle error when deleting insight', async () => {
@@ -292,7 +397,7 @@ describe('InsightController - Additional Coverage', () => {
 
   describe('Edge Cases', () => {
     beforeEach(() => {
-      controller = new InsightController(mockInsightService);
+      controller = new InsightController(mockInsightService, mockSessionService);
     });
 
     it('should handle empty session ID', async () => {
@@ -343,7 +448,14 @@ describe('InsightController - Additional Coverage', () => {
 
   describe('Integration Scenarios', () => {
     beforeEach(() => {
-      controller = new InsightController(mockInsightService);
+      controller = new InsightController(mockInsightService, mockSessionService);
+      
+      // Mock session for integration tests
+      mockSessionService.getSessionById.mockResolvedValue({
+        id: 'lifecycle-session',
+        source: 'copilot',
+        directory: '/path/to/session'
+      });
     });
 
     it('should handle complete insight lifecycle', async () => {
@@ -370,6 +482,13 @@ describe('InsightController - Additional Coverage', () => {
     it('should handle force regeneration workflow', async () => {
       const sessionId = 'regen-session';
       mockReq.params.id = sessionId;
+      
+      // Update mock for this specific session
+      mockSessionService.getSessionById.mockResolvedValue({
+        id: sessionId,
+        source: 'copilot',
+        directory: '/path/to/regen-session'
+      });
 
       // Initial generation
       mockReq.body = { force: false };
@@ -381,7 +500,7 @@ describe('InsightController - Additional Coverage', () => {
       mockInsightService.generateInsight.mockResolvedValue({ status: 'generating' });
       await controller.generateInsight(mockReq, mockRes);
 
-      expect(mockInsightService.generateInsight).toHaveBeenCalledWith(sessionId, 'copilot', true);
+      expect(mockInsightService.generateInsight).toHaveBeenCalledWith(sessionId, '/path/to/regen-session', 'copilot', true);
     });
   });
 });

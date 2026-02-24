@@ -92,7 +92,7 @@ describe('InsightService', () => {
       const reportContent = '# Test Report\nThis is a test report.';
       await fs.writeFile(insightFile, reportContent);
 
-      const result = await service.generateInsight(sessionId, 'copilot', false);
+      const result = await service.generateInsight(sessionId, sessionPath, 'copilot', false);
 
       expect(result.status).toBe('completed');
       expect(result.report).toBe(reportContent);
@@ -114,7 +114,7 @@ describe('InsightService', () => {
       setupFileMocks();
       spawn.mockReturnValue(mockProcess);
 
-      const result = await service.generateInsight(sessionId, 'copilot', true);
+      const result = await service.generateInsight(sessionId, sessionPath, 'copilot', true);
 
       expect(result.status).toBe('generating');
       expect(spawn).toHaveBeenCalled();
@@ -137,7 +137,7 @@ describe('InsightService', () => {
       setupFileMocks();
       spawn.mockReturnValue(mockProcess);
 
-      const result = await service.generateInsight(sessionId, 'copilot', true);
+      const result = await service.generateInsight(sessionId, sessionPath, 'copilot', true);
 
       expect(result.status).toBe('generating');
       expect(spawn).toHaveBeenCalled();
@@ -154,7 +154,7 @@ describe('InsightService', () => {
         pid: 12345
       }));
 
-      const result = await service.generateInsight(sessionId, 'copilot', false);
+      const result = await service.generateInsight(sessionId, sessionPath, 'copilot', false);
 
       expect(result.status).toBe('generating');
       expect(result.report).toContain('Another request is currently generating');
@@ -185,7 +185,7 @@ describe('InsightService', () => {
 
       const consoleLogSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
 
-      const result = await service.generateInsight(sessionId, 'copilot', false);
+      const result = await service.generateInsight(sessionId, sessionPath, 'copilot', false);
 
       expect(result.status).toBe('generating');
       expect(consoleLogSpy).toHaveBeenCalledWith(expect.stringContaining('Removing stale lock file'));
@@ -197,7 +197,7 @@ describe('InsightService', () => {
       const sessionPath = path.join(tmpDir, sessionId);
       await fs.mkdir(sessionPath, { recursive: true });
 
-      await expect(service.generateInsight(sessionId, 'copilot', false)).rejects.toThrow('Events file not found');
+      await expect(service.generateInsight(sessionId, sessionPath, 'copilot', false)).rejects.toThrow('Events file not found');
     });
 
     it('should spawn copilot process correctly', async () => {
@@ -211,7 +211,7 @@ describe('InsightService', () => {
       setupFileMocks();
       spawn.mockReturnValue(mockProcess);
 
-      await service.generateInsight(sessionId, 'copilot', false);
+      await service.generateInsight(sessionId, sessionPath, 'copilot', false);
 
       expect(spawn).toHaveBeenCalledWith(
         'copilot',
@@ -235,7 +235,7 @@ describe('InsightService', () => {
       setupFileMocks();
       spawn.mockReturnValue(mockProcess);
 
-      const result = await service.generateInsight(sessionId, 'copilot', false);
+      const result = await service.generateInsight(sessionId, sessionPath, 'copilot', false);
 
       expect(result.status).toBe('generating');
       expect(spawn).toHaveBeenCalled();
@@ -252,7 +252,7 @@ describe('InsightService', () => {
       setupFileMocks();
       spawn.mockReturnValue(mockProcess);
 
-      const result = await service.generateInsight(sessionId, 'copilot', false);
+      const result = await service.generateInsight(sessionId, sessionPath, 'copilot', false);
 
       expect(result.status).toBe('generating');
       expect(spawn).toHaveBeenCalled();
@@ -277,7 +277,7 @@ describe('InsightService', () => {
 
       const consoleLogSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
 
-      await service.generateInsight(sessionId, 'copilot', false);
+      await service.generateInsight(sessionId, sessionPath, 'copilot', false);
 
       await new Promise(resolve => setTimeout(resolve, 10));
 
@@ -310,7 +310,7 @@ describe('InsightService', () => {
 
       const consoleLogSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
 
-      await service.generateInsight(sessionId, 'copilot', false);
+      await service.generateInsight(sessionId, sessionPath, 'copilot', false);
 
       await new Promise(resolve => setTimeout(resolve, 10));
 
@@ -344,7 +344,7 @@ describe('InsightService', () => {
         return destination;
       });
 
-      await service.generateInsight(sessionId, 'copilot', false);
+      await service.generateInsight(sessionId, sessionPath, 'copilot', false);
 
       await new Promise(resolve => setTimeout(resolve, 20));
 
@@ -369,7 +369,7 @@ describe('InsightService', () => {
         return destination;
       });
 
-      await service.generateInsight(sessionId, 'copilot', false);
+      await service.generateInsight(sessionId, sessionPath, 'copilot', false);
 
       await new Promise(resolve => setTimeout(resolve, 20));
 
@@ -394,7 +394,7 @@ describe('InsightService', () => {
 
       const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
 
-      await service.generateInsight(sessionId, 'copilot', false);
+      await service.generateInsight(sessionId, sessionPath, 'copilot', false);
 
       await new Promise(resolve => setTimeout(resolve, 10));
 
@@ -434,7 +434,7 @@ describe('InsightService', () => {
 
       const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
 
-      await service.generateInsight(sessionId, 'copilot', false);
+      await service.generateInsight(sessionId, sessionPath, 'copilot', false);
 
       await new Promise(resolve => setTimeout(resolve, 10));
 
@@ -467,7 +467,7 @@ describe('InsightService', () => {
 
       const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
 
-      await service.generateInsight(sessionId, 'copilot', false);
+      await service.generateInsight(sessionId, sessionPath, 'copilot', false);
 
       await new Promise(resolve => setTimeout(resolve, 10));
 
@@ -505,7 +505,7 @@ describe('InsightService', () => {
         return originalReadFile(filePath, ...args);
       });
 
-      await service.generateInsight(sessionId, 'copilot', false);
+      await service.generateInsight(sessionId, sessionPath, 'copilot', false);
 
       await new Promise(resolve => setTimeout(resolve, 10));
 
@@ -528,7 +528,7 @@ describe('InsightService', () => {
       const reportContent = '# Test Report';
       await fs.writeFile(insightFile, reportContent);
 
-      const result = await service.getInsightStatus(sessionId);
+      const result = await service.getInsightStatus(sessionId, sessionPath, 'copilot');
 
       expect(result.status).toBe('completed');
       expect(result.report).toBe(reportContent);
@@ -542,7 +542,7 @@ describe('InsightService', () => {
       const lockFile = path.join(sessionPath, 'agent-review.md.lock');
       await fs.writeFile(lockFile, JSON.stringify({ sessionId }));
 
-      const result = await service.getInsightStatus(sessionId);
+      const result = await service.getInsightStatus(sessionId, sessionPath, 'copilot');
 
       expect(result.status).toBe('generating');
       expect(result.startedAt).toBeDefined();
@@ -559,7 +559,7 @@ describe('InsightService', () => {
       await fs.writeFile(lockFile, JSON.stringify({ sessionId }));
       await fs.writeFile(tmpFile, 'Generating insight...');
 
-      const result = await service.getInsightStatus(sessionId);
+      const result = await service.getInsightStatus(sessionId, sessionPath, 'copilot');
 
       expect(result.status).toBe('generating');
       expect(result.log).toBe('Generating insight...');
@@ -583,7 +583,7 @@ describe('InsightService', () => {
         return stats;
       });
 
-      const result = await service.getInsightStatus(sessionId);
+      const result = await service.getInsightStatus(sessionId, sessionPath, 'copilot');
 
       expect(result.status).toBe('timeout');
       expect(result.ageMs).toBeGreaterThan(config.INSIGHT_TIMEOUT_MS);
@@ -611,7 +611,7 @@ describe('InsightService', () => {
         return stats;
       });
 
-      const result = await service.getInsightStatus(sessionId);
+      const result = await service.getInsightStatus(sessionId, sessionPath, 'copilot');
 
       expect(result.status).toBe('timeout');
       expect(result.log).toBe('Partial output before timeout');
@@ -621,7 +621,8 @@ describe('InsightService', () => {
     });
 
     it('should return not_started status when no insight exists', async () => {
-      const result = await service.getInsightStatus(sessionId);
+      const sessionPath = path.join(tmpDir, sessionId);
+      const result = await service.getInsightStatus(sessionId, sessionPath, 'copilot');
 
       expect(result.status).toBe('not_started');
     });
@@ -634,7 +635,7 @@ describe('InsightService', () => {
       await fs.writeFile(lockFile, JSON.stringify({ sessionId }));
       // Don't create tmp file
 
-      const result = await service.getInsightStatus(sessionId);
+      const result = await service.getInsightStatus(sessionId, sessionPath, 'copilot');
 
       expect(result.status).toBe('generating');
       expect(result.log).toBeNull();
@@ -649,14 +650,15 @@ describe('InsightService', () => {
       const insightFile = path.join(sessionPath, 'agent-review.md');
       await fs.writeFile(insightFile, '# Test Report');
 
-      const result = await service.deleteInsight(sessionId);
+      const result = await service.deleteInsight(sessionId, sessionPath, 'copilot');
 
       expect(result.success).toBe(true);
       await expect(fs.access(insightFile)).rejects.toThrow();
     });
 
     it('should return success for non-existent file', async () => {
-      const result = await service.deleteInsight(sessionId);
+      const sessionPath = path.join(tmpDir, sessionId);
+      const result = await service.deleteInsight(sessionId, sessionPath, 'copilot');
 
       expect(result.success).toBe(true);
       expect(result.message).toBe('Insight file not found');
@@ -680,7 +682,7 @@ describe('InsightService', () => {
         return originalUnlink(filePath);
       });
 
-      await expect(service.deleteInsight(sessionId)).rejects.toThrow('Permission denied');
+      await expect(service.deleteInsight(sessionId, sessionPath, 'copilot')).rejects.toThrow('Permission denied');
     });
   });
 
@@ -977,7 +979,8 @@ Regular line here
   describe('_buildPrompt', () => {
     it('should build a prompt with correct structure', () => {
       const insightFile = path.join(tmpDir, sessionId, 'agent-review.md');
-      const prompt = service._buildPrompt(insightFile);
+      const eventsFile = path.join(tmpDir, sessionId, 'events.jsonl');
+      const prompt = service._buildPrompt(insightFile, eventsFile);
 
       expect(prompt).toContain('expert AI agent evaluator');
       expect(prompt).toContain('Step 1 — Discover session files');
@@ -996,7 +999,8 @@ Regular line here
 
     it('should include correct file paths', () => {
       const insightFile = path.join(tmpDir, sessionId, 'agent-review.md');
-      const prompt = service._buildPrompt(insightFile);
+      const eventsFile = path.join(tmpDir, sessionId, 'events.jsonl');
+      const prompt = service._buildPrompt(insightFile, eventsFile);
 
       const sessionDir = path.dirname(insightFile);
       const workDir = `${sessionDir}/.output`;
@@ -1010,7 +1014,8 @@ Regular line here
 
     it('should include output file paths for sub-agents', () => {
       const insightFile = path.join(tmpDir, sessionId, 'agent-review.md');
-      const prompt = service._buildPrompt(insightFile);
+      const eventsFile = path.join(tmpDir, sessionId, 'events.jsonl');
+      const prompt = service._buildPrompt(insightFile, eventsFile);
 
       expect(prompt).toContain('tools.md');
       expect(prompt).toContain('workflow.md');
@@ -1019,14 +1024,16 @@ Regular line here
 
     it('should specify final output path', () => {
       const insightFile = path.join(tmpDir, sessionId, 'agent-review.md');
-      const prompt = service._buildPrompt(insightFile);
+      const eventsFile = path.join(tmpDir, sessionId, 'events.jsonl');
+      const prompt = service._buildPrompt(insightFile, eventsFile);
 
       expect(prompt).toContain(insightFile);
     });
 
     it('should include analysis requirements', () => {
       const insightFile = path.join(tmpDir, sessionId, 'agent-review.md');
-      const prompt = service._buildPrompt(insightFile);
+      const eventsFile = path.join(tmpDir, sessionId, 'events.jsonl');
+      const prompt = service._buildPrompt(insightFile, eventsFile);
 
       expect(prompt).toContain('tool selection quality');
       expect(prompt).toContain('error handling');
@@ -1038,14 +1045,16 @@ Regular line here
 
     it('should include character limit constraint', () => {
       const insightFile = path.join(tmpDir, sessionId, 'agent-review.md');
-      const prompt = service._buildPrompt(insightFile);
+      const eventsFile = path.join(tmpDir, sessionId, 'events.jsonl');
+      const prompt = service._buildPrompt(insightFile, eventsFile);
 
       expect(prompt).toContain('3000 characters');
     });
 
     it('should emphasize waiting for all sub-agents', () => {
       const insightFile = path.join(tmpDir, sessionId, 'agent-review.md');
-      const prompt = service._buildPrompt(insightFile);
+      const eventsFile = path.join(tmpDir, sessionId, 'events.jsonl');
+      const prompt = service._buildPrompt(insightFile, eventsFile);
 
       expect(prompt).toContain('CRITICAL: You MUST wait for ALL 3 sub-agents');
       expect(prompt).toContain('Do NOT move on until every sub-agent has returned');
@@ -1053,10 +1062,20 @@ Regular line here
 
     it('should include cleanup instructions', () => {
       const insightFile = path.join(tmpDir, sessionId, 'agent-review.md');
-      const prompt = service._buildPrompt(insightFile);
+      const eventsFile = path.join(tmpDir, sessionId, 'events.jsonl');
+      const prompt = service._buildPrompt(insightFile, eventsFile);
 
       expect(prompt).toContain('rm -rf');
       expect(prompt).toContain('.output');
+    });
+
+    it('should use dynamic events filename', () => {
+      const insightFile = path.join(tmpDir, sessionId, 'agent-review.md');
+      const eventsFile = path.join(tmpDir, sessionId, '2026-01-01T00-00-00-000Z_abc123.jsonl');
+      const prompt = service._buildPrompt(insightFile, eventsFile);
+
+      expect(prompt).toContain('2026-01-01T00-00-00-000Z_abc123.jsonl');
+      expect(prompt).not.toContain('events.jsonl');
     });
   });
 });

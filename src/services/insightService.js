@@ -438,7 +438,7 @@ IMPORTANT CONSTRAINTS:
    * @param {string} source - Session source
    * @returns {Promise<Object>} Status object
    */
-  async getInsightStatus(sessionId, sessionPath, source = 'copilot') {
+  async getInsightStatus(sessionId, sessionPath, _source = 'copilot') {
     return await this._getStatusForSource(sessionPath);
   }
 
@@ -504,7 +504,7 @@ IMPORTANT CONSTRAINTS:
    * @param {string} source - Session source
    * @returns {Promise<Object>} Result object
    */
-  async deleteInsight(sessionId, sessionPath, source = 'copilot') {
+  async deleteInsight(sessionId, sessionPath, _source = 'copilot') {
     const insightFile = path.join(sessionPath, 'agent-review.md');
 
     try {

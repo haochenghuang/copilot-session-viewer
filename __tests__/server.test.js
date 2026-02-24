@@ -234,6 +234,15 @@ describe('Server API Endpoints', () => {
   });
 
   describe('POST /session/:id/insight', () => {
+    beforeEach(() => {
+      // Mock session for insight tests
+      mockSessionService.getSessionById.mockResolvedValue({
+        id: 'valid-session',
+        source: 'copilot',
+        directory: '/path/to/session'
+      });
+    });
+
     it('should reject invalid session IDs', async () => {
       await request(app)
         .post('/session/invalid..id/insight')
@@ -254,7 +263,15 @@ describe('Server API Endpoints', () => {
         .expect(200);
 
       expect(response.body.status).toBe('completed');
-      expect(mockInsightService.generateInsight).toHaveBeenCalledWith('valid-session', 'copilot', false);
+      expect(mockInsightService.generateInsight).toHaveBeenCalledWith('valid-session', '/path/to/session', 'copilot', false);
+    });
+
+    it('should handle session not found', async () => {
+      mockSessionService.getSessionById.mockResolvedValue(null);
+
+      await request(app)
+        .post('/session/nonexistent/insight')
+        .expect(404);
     });
 
     it('should handle insight generation errors', async () => {
@@ -267,6 +284,15 @@ describe('Server API Endpoints', () => {
   });
 
   describe('GET /session/:id/insight', () => {
+    beforeEach(() => {
+      // Mock session for insight tests
+      mockSessionService.getSessionById.mockResolvedValue({
+        id: 'valid-session',
+        source: 'copilot',
+        directory: '/path/to/session'
+      });
+    });
+
     it('should get insight status', async () => {
       const mockStatus = {
         status: 'completed',
@@ -280,11 +306,28 @@ describe('Server API Endpoints', () => {
         .expect(200);
 
       expect(response.body.status).toBe('completed');
-      expect(mockInsightService.getInsightStatus).toHaveBeenCalledWith('valid-session');
+      expect(mockInsightService.getInsightStatus).toHaveBeenCalledWith('valid-session', '/path/to/session', 'copilot');
+    });
+
+    it('should handle session not found', async () => {
+      mockSessionService.getSessionById.mockResolvedValue(null);
+
+      await request(app)
+        .get('/session/nonexistent/insight')
+        .expect(404);
     });
   });
 
   describe('DELETE /session/:id/insight', () => {
+    beforeEach(() => {
+      // Mock session for insight tests
+      mockSessionService.getSessionById.mockResolvedValue({
+        id: 'valid-session',
+        source: 'copilot',
+        directory: '/path/to/session'
+      });
+    });
+
     it('should delete insight', async () => {
       mockInsightService.deleteInsight.mockResolvedValue({ success: true });
 
@@ -293,7 +336,15 @@ describe('Server API Endpoints', () => {
         .expect(200);
 
       expect(response.body.success).toBe(true);
-      expect(mockInsightService.deleteInsight).toHaveBeenCalledWith('valid-session');
+      expect(mockInsightService.deleteInsight).toHaveBeenCalledWith('valid-session', '/path/to/session', 'copilot');
+    });
+
+    it('should handle session not found', async () => {
+      mockSessionService.getSessionById.mockResolvedValue(null);
+
+      await request(app)
+        .delete('/session/nonexistent/insight')
+        .expect(404);
     });
   });
 });

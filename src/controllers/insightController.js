@@ -1,7 +1,5 @@
 const InsightService = require('../services/insightService');
 const { isValidSessionId } = require('../utils/helpers');
-const path = require('path');
-const os = require('os');
 
 class InsightController {
   constructor(insightService = null, sessionService = null) {
