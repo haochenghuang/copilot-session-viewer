@@ -5,9 +5,10 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Node.js Version](https://img.shields.io/badge/node-%3E%3D18.0.0-brightgreen)](https://nodejs.org/)
 
-**AI-Powered Session Log Analysis Tool for GitHub Copilot CLI, Claude Code CLI & Pi-Mono**
+**Multi-Tool Session Log Viewer & Analyzer**  
+View and analyze AI coding assistant sessions from **GitHub Copilot CLI**, **Claude Code CLI**, and **Pi-Mono** with time analysis, virtual scrolling, and AI-powered insights.
 
-A modern web-based viewer for analyzing AI coding assistant session logs with virtual scrolling, infinite loading, time analysis, and AI-powered insights. Supports **Copilot**, **Claude Code**, and **Pi-Mono** sessions.
+A modern web-based viewer for analyzing AI coding assistant session logs with virtual scrolling, infinite loading, time analysis, and AI-powered insights. Supports **GitHub Copilot CLI**, **Claude Code CLI**, and **Pi-Mono** sessions.
 
 ### Session List
 ![Session List](https://raw.githubusercontent.com/qiaolei81/copilot-session-viewer/main/docs/images/homepage.png)
