@@ -628,7 +628,8 @@ describe('UploadController', () => {
     it('should successfully import valid session', async () => {
       const sessionId = 'imported-session-id';
       const zipPath = path.join(controller.uploadDir, 'test.zip');
-      await fs.promises.mkdir(controller.uploadDir, { recursive: true });
+      // Ensure directory exists (defense against CI race conditions)
+      await fs.promises.mkdir(path.dirname(zipPath), { recursive: true });
       await fs.promises.writeFile(zipPath, 'dummy zip content');
 
       const req = {
@@ -663,7 +664,8 @@ describe('UploadController', () => {
 
     it('should handle unzip failure', async () => {
       const zipPath = path.join(controller.uploadDir, 'test.zip');
-      await fs.promises.mkdir(controller.uploadDir, { recursive: true });
+      // Ensure directory exists (defense against CI race conditions)
+      await fs.promises.mkdir(path.dirname(zipPath), { recursive: true });
       await fs.promises.writeFile(zipPath, 'dummy');
 
       const req = { file: { path: zipPath } };
@@ -743,7 +745,8 @@ describe('UploadController', () => {
 
     it('should reject empty zip files', async () => {
       const zipPath = path.join(controller.uploadDir, 'test.zip');
-      await fs.promises.mkdir(controller.uploadDir, { recursive: true });
+      // Ensure directory exists (defense against CI race conditions)
+      await fs.promises.mkdir(path.dirname(zipPath), { recursive: true });
       await fs.promises.writeFile(zipPath, 'dummy');
 
       const req = { file: { path: zipPath } };
@@ -762,7 +765,8 @@ describe('UploadController', () => {
 
     it('should reject invalid session directory names', async () => {
       const zipPath = path.join(controller.uploadDir, 'test.zip');
-      await fs.promises.mkdir(controller.uploadDir, { recursive: true });
+      // Ensure directory exists (defense against CI race conditions)
+      await fs.promises.mkdir(path.dirname(zipPath), { recursive: true });
       await fs.promises.writeFile(zipPath, 'dummy');
 
       const req = { file: { path: zipPath } };
@@ -782,7 +786,8 @@ describe('UploadController', () => {
     it('should reject sessions without events.jsonl', async () => {
       const sessionId = 'test-session-id';
       const zipPath = path.join(controller.uploadDir, 'test.zip');
-      await fs.promises.mkdir(controller.uploadDir, { recursive: true });
+      // Ensure directory exists (defense against CI race conditions)
+      await fs.promises.mkdir(path.dirname(zipPath), { recursive: true });
       await fs.promises.writeFile(zipPath, 'dummy');
 
       const req = { file: { path: zipPath } };
@@ -803,7 +808,8 @@ describe('UploadController', () => {
     it('should reject session that already exists', async () => {
       const sessionId = 'existing-session-id';
       const zipPath = path.join(controller.uploadDir, 'test.zip');
-      await fs.promises.mkdir(controller.uploadDir, { recursive: true });
+      // Ensure directory exists (defense against CI race conditions)
+      await fs.promises.mkdir(path.dirname(zipPath), { recursive: true });
       await fs.promises.writeFile(zipPath, 'dummy');
 
       const req = { file: { path: zipPath } };
@@ -824,7 +830,8 @@ describe('UploadController', () => {
 
     it('should handle unzip spawn error', async () => {
       const zipPath = path.join(controller.uploadDir, 'test.zip');
-      await fs.promises.mkdir(controller.uploadDir, { recursive: true });
+      // Ensure directory exists (defense against CI race conditions)
+      await fs.promises.mkdir(path.dirname(zipPath), { recursive: true });
       await fs.promises.writeFile(zipPath, 'dummy');
 
       const req = { file: { path: zipPath } };
@@ -841,7 +848,8 @@ describe('UploadController', () => {
 
     it('should handle unzip spawn error with cleanup failures', async () => {
       const zipPath = path.join(controller.uploadDir, 'test.zip');
-      await fs.promises.mkdir(controller.uploadDir, { recursive: true });
+      // Ensure directory exists (defense against CI race conditions)
+      await fs.promises.mkdir(path.dirname(zipPath), { recursive: true });
       await fs.promises.writeFile(zipPath, 'dummy');
 
       const req = { file: { path: zipPath } };
@@ -867,7 +875,8 @@ describe('UploadController', () => {
 
     it('should handle error handler when zipPath unlink succeeds but extractDir rm fails', async () => {
       const zipPath = path.join(controller.uploadDir, 'test.zip');
-      await fs.promises.mkdir(controller.uploadDir, { recursive: true });
+      // Ensure directory exists (defense against CI race conditions)
+      await fs.promises.mkdir(path.dirname(zipPath), { recursive: true });
       await fs.promises.writeFile(zipPath, 'dummy');
 
       const req = { file: { path: zipPath } };
@@ -921,7 +930,8 @@ describe('UploadController', () => {
 
     it('should handle errors during unlink in close handler', async () => {
       const zipPath = path.join(controller.uploadDir, 'test.zip');
-      await fs.promises.mkdir(controller.uploadDir, { recursive: true });
+      // Ensure directory exists (defense against CI race conditions)
+      await fs.promises.mkdir(path.dirname(zipPath), { recursive: true });
       await fs.promises.writeFile(zipPath, 'dummy');
 
       const req = { file: { path: zipPath } };
@@ -945,7 +955,8 @@ describe('UploadController', () => {
 
     it('should handle errors during readdir in close handler', async () => {
       const zipPath = path.join(controller.uploadDir, 'test.zip');
-      await fs.promises.mkdir(controller.uploadDir, { recursive: true });
+      // Ensure directory exists (defense against CI race conditions)
+      await fs.promises.mkdir(path.dirname(zipPath), { recursive: true });
       await fs.promises.writeFile(zipPath, 'dummy');
 
       const req = { file: { path: zipPath } };
@@ -970,7 +981,8 @@ describe('UploadController', () => {
     it('should handle errors during access check for events.jsonl in close handler', async () => {
       const sessionId = 'test-session-id';
       const zipPath = path.join(controller.uploadDir, 'test.zip');
-      await fs.promises.mkdir(controller.uploadDir, { recursive: true });
+      // Ensure directory exists (defense against CI race conditions)
+      await fs.promises.mkdir(path.dirname(zipPath), { recursive: true });
       await fs.promises.writeFile(zipPath, 'dummy');
 
       const req = { file: { path: zipPath } };
