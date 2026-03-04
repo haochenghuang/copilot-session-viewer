@@ -48,6 +48,17 @@ class SessionRepository {
     }
     
     this.parserFactory = new ParserFactory();
+    this._cache = null;
+    this._cacheTime = 0;
+    this._cacheTTL = 30000; // 30 seconds
+  }
+
+  /**
+   * Invalidate the session cache (e.g. after file changes)
+   */
+  invalidateCache() {
+    this._cache = null;
+    this._cacheTime = 0;
   }
 
   /**
@@ -55,6 +66,11 @@ class SessionRepository {
    * @returns {Promise<Session[]>} Array of sessions sorted by updatedAt (newest first)
    */
   async findAll() {
+    const now = Date.now();
+    if (this._cache && (now - this._cacheTime) < this._cacheTTL) {
+      return this._cache;
+    }
+
     const allSessions = [];
 
     for (const source of this.sources) {
@@ -66,7 +82,10 @@ class SessionRepository {
       }
     }
 
-    return this._sortByUpdatedAt(allSessions);
+    const sorted = this._sortByUpdatedAt(allSessions);
+    this._cache = sorted;
+    this._cacheTime = now;
+    return sorted;
   }
 
   /**
