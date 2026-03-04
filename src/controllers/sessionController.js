@@ -83,6 +83,7 @@ class SessionController {
     try {
       const page = req.query.page ? parseInt(req.query.page) : null;
       const limit = req.query.limit ? parseInt(req.query.limit) : null;
+      const sourceFilter = req.query.source || null;
 
       if (page && limit) {
         // Return paginated response
@@ -100,8 +101,11 @@ class SessionController {
 
         res.json(paginationData);
       } else {
-        // Return all sessions for backward compatibility
-        const sessions = await this.sessionService.getAllSessions();
+        // Return all sessions (optionally filtered by source)
+        let sessions = await this.sessionService.getAllSessions();
+        if (sourceFilter) {
+          sessions = sessions.filter(s => s.source === sourceFilter);
+        }
 
         // Set cache headers for full session list
         res.set({
