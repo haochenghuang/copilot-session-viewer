@@ -751,13 +751,10 @@ class SessionRepository {
           const wsRaw = await fs.readFile(wsFilePath, 'utf-8');
           const ws = JSON.parse(wsRaw);
           if (Array.isArray(ws.folders) && ws.folders.length > 0) {
-            // Return all folder names joined, relative to workspace file dir
+            // Return first folder path
             const wsDir = path.dirname(wsFilePath);
-            const folders = ws.folders.map(f => {
-              const resolved = path.resolve(wsDir, f.path);
-              return path.basename(resolved);
-            });
-            return folders.join(', ');
+            const resolved = path.resolve(wsDir, ws.folders[0].path);
+            return resolved;
           }
         } catch {
           // Ignore nested read errors
