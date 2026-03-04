@@ -607,7 +607,7 @@
       const docHeight = document.documentElement.scrollHeight;
 
       // Load more when user is within 500px of bottom
-      if (scrollTop + windowHeight >= docHeight - 500 && hasMore && !isLoading) {
+      if (scrollTop + windowHeight >= docHeight - 500 && currentState().hasMore && !isLoading) {
         loadMoreSessions();
       }
     }
