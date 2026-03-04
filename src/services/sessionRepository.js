@@ -51,13 +51,18 @@ class SessionRepository {
   }
 
   /**
-   * Get all sessions from all sources
+   * Get all sessions from all sources (or a specific source)
+   * @param {string|null} sourceType - Optional source type filter ('copilot', 'claude', 'pi-mono', 'vscode')
    * @returns {Promise<Session[]>} Array of sessions sorted by updatedAt (newest first)
    */
-  async findAll() {
+  async findAll(sourceType = null) {
     const allSessions = [];
 
-    for (const source of this.sources) {
+    const sources = sourceType
+      ? this.sources.filter(s => s.type === sourceType)
+      : this.sources;
+
+    for (const source of sources) {
       try {
         const sessions = await this._scanSource(source);
         allSessions.push(...sessions);

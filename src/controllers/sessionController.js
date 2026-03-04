@@ -90,22 +90,18 @@ class SessionController {
         if (page < 1 || limit < 1 || limit > 100) {
           return res.status(400).json({ error: 'Invalid pagination parameters' });
         }
-        const paginationData = await this.sessionService.getPaginatedSessions(page, limit);
+        const paginationData = await this.sessionService.getPaginatedSessions(page, limit, sourceFilter);
         res.set({ 'Cache-Control': 'public, max-age=60' });
         res.json(paginationData);
       } else if (sourceFilter && limit) {
         // Source-filtered first page (for pill switching)
-        let sessions = await this.sessionService.getAllSessions();
-        sessions = sessions.filter(s => s.source === sourceFilter);
+        const sessions = await this.sessionService.getAllSessions(sourceFilter);
         const sliced = sessions.slice(0, limit);
         res.set({ 'Cache-Control': 'public, max-age=60' });
         res.json({ sessions: sliced, hasMore: sessions.length > limit, totalSessions: sessions.length });
       } else {
         // Return all sessions for backward compatibility
-        let sessions = await this.sessionService.getAllSessions();
-        if (sourceFilter) {
-          sessions = sessions.filter(s => s.source === sourceFilter);
-        }
+        const sessions = await this.sessionService.getAllSessions(sourceFilter);
         res.set({ 'Cache-Control': 'public, max-age=300' });
         res.json(sessions);
       }
