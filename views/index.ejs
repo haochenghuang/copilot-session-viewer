@@ -519,7 +519,7 @@
     // Per-source pagination state
     const sourceState = {};
     // Initialize from initial server load (copilot is default active pill)
-    sourceState['copilot'] = { offset: initialSessions.filter(s => s.source === 'copilot').length, hasMore: hasMoreFromServer };
+    sourceState['copilot'] = { offset: initialSessions.length, hasMore: hasMoreFromServer };
 
     let isLoading = false;
 

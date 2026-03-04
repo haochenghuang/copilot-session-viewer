@@ -12,8 +12,8 @@ class SessionController {
   // Homepage with initial load (first batch)
   async getHomepage(req, res) {
     try {
-      const initialLimit = 100; // Load first 100 sessions to ensure Pi-Mono sessions are included
-      const paginationData = await this.sessionService.getPaginatedSessions(1, initialLimit);
+      // Only load default pill (copilot) first 20 sessions
+      const paginationData = await this.sessionService.getPaginatedSessions(1, 20, 'copilot');
 
       // Pass data for infinite scroll
       const templateData = {
