@@ -495,8 +495,9 @@ class SessionRepository {
         }
       }
     } catch (err) {
-      console.error(`Error searching VSCode sessions: ${err.message}`);
+      console.error(`[VSCode findById] Error searching VSCode sessions: ${err.message}`, err.stack);
     }
+    console.log(`[VSCode findById] Session ${sessionId} not found in vscode sessions`);
     return null;
   }
 

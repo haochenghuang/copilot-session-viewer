@@ -20,17 +20,19 @@ if (require.main === module) {
     console.log(`🔧 Environment: ${config.NODE_ENV}`);
     console.log(`⚡ Active processes: ${processManager.getActiveCount()}`);
     
-    // Log sessions found
-    const SessionRepository = require('./src/services/sessionRepository');
-    const repo = new SessionRepository();
-    repo.findAll().then(sessions => {
-      console.log(`📊 Sessions found: ${sessions.length}`);
-      if (sessions.length > 0) {
-        console.log(`   First 5: ${sessions.slice(0, 5).map(s => s.id + ' (' + s.source + ')').join(', ')}`);
-      }
-    }).catch(err => {
-      console.error('❌ Error loading sessions:', err.message);
-    });
+    // Log sessions found (deferred to avoid blocking first requests)
+    setTimeout(() => {
+      const SessionRepository = require('./src/services/sessionRepository');
+      const repo = new SessionRepository();
+      repo.findAll().then(sessions => {
+        console.log(`📊 Sessions found: ${sessions.length}`);
+        if (sessions.length > 0) {
+          console.log(`   First 5: ${sessions.slice(0, 5).map(s => s.id + ' (' + s.source + ')').join(', ')}`);
+        }
+      }).catch(err => {
+        console.error('❌ Error loading sessions:', err.message);
+      });
+    }, 5000); // Defer 5s so first requests aren't blocked
   });
 
   // Graceful shutdown

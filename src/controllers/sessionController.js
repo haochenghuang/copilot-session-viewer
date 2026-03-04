@@ -163,7 +163,7 @@ class SessionController {
       }
 
       // Get session metadata for ETag generation
-      const session = await this.sessionService.getSessionById(sessionId);
+      const session = await this.sessionService.sessionRepository.findById(sessionId);
       if (!session) {
         return res.status(404).json({ error: 'Session not found' });
       }

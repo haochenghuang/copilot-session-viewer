@@ -50,12 +50,12 @@ function createApp(options = {}) {
   }));
 
   app.use(compression({
-    level: 9, // Maximum compression for local use (CPU is not a bottleneck)
+    level: 1, // Fast compression (speed > ratio for local use)
     threshold: 1024, // Compress responses > 1KB
     filter: (req, res) => {
-      // Always compress JSON responses
-      if (res.getHeader('Content-Type')?.includes('application/json')) {
-        return true;
+      // Skip compression for large JSON API responses (handled separately)
+      if (req.path.includes('/events') && res.getHeader('Content-Type')?.includes('application/json')) {
+        return false;
       }
       return compression.filter(req, res);
     }
