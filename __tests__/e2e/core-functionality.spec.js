@@ -41,18 +41,8 @@ test.describe('Core Functionality Tests', () => {
     await page.goto('/');
     await page.waitForLoadState('networkidle');
 
-    // Load more button only exists in DOM when there are sessions
-    const sessionCount = await page.locator('.recent-item').count();
-    if (sessionCount === 0) {
-      // No sessions in this environment - skip assertion
-      return;
-    }
-
-    // Load more button should exist in DOM
-    const loadMoreButton = page.locator('#load-more-btn');
-    await expect(loadMoreButton).toBeAttached();
-
-    // Loading indicator should exist
+    // Loading indicator is always rendered in DOM (hidden by default via CSS)
+    // It does not depend on session count
     const loadingIndicator = page.locator('#loading-indicator');
     await expect(loadingIndicator).toBeAttached();
   });

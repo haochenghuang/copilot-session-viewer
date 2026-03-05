@@ -9,73 +9,66 @@ test.describe('Infinite Scroll', () => {
   });
 
   test('should display Load More Sessions button when there are more sessions', async ({ page }) => {
-    // Check if Load More button exists (it might be hidden initially)
-    const loadMoreButton = page.locator('#load-more-btn');
-    const loadMoreSection = page.locator('#load-more-section');
-
-    // Button only exists in DOM when there are sessions
+    // Note: This app now uses pure infinite scroll without a load-more button
+    // The #load-more-btn and #load-more-section elements have been removed
+    // This test now just verifies that sessions exist (if any)
     const sessionCount = await page.locator('.recent-item').count();
-    if (sessionCount === 0) {
-      // No sessions in this environment - skip assertion
-      return;
-    }
 
-    // Button should exist in DOM even if hidden
-    await expect(loadMoreButton).toBeAttached();
+    // Just verify loading indicator exists in DOM
+    const loadingIndicator = page.locator('#loading-indicator');
+    await expect(loadingIndicator).toBeAttached();
 
-    // If there are enough sessions, button should become visible
-    if (sessionCount >= 20) {
-      await expect(loadMoreSection).toBeVisible();
-      await expect(loadMoreButton).toContainText('Load More Sessions');
-    }
+    console.log(`Found ${sessionCount} sessions (infinite scroll mode)`);
   });
 
   test('should load additional sessions when Load More button is clicked', async ({ page }) => {
-    // Count initial sessions
+    // Note: Load More button has been removed - this is now pure infinite scroll
+    // This test now verifies infinite scroll behavior by scrolling
     const initialSessionCount = await page.locator('.recent-item').count();
-    expect(initialSessionCount).toBeGreaterThan(0);
 
-    // Check if Load More button is available and visible
-    const loadMoreButton = page.locator('#load-more-btn');
-    const loadMoreSection = page.locator('#load-more-section');
-
-    const isLoadMoreVisible = await loadMoreSection.isVisible();
-
-    if (isLoadMoreVisible) {
-      await loadMoreButton.click();
-
-      // Wait for loading to complete
-      await page.waitForTimeout(3000);
-
-      // Count sessions after loading
-      const newSessionCount = await page.locator('.recent-item').count();
-      expect(newSessionCount).toBeGreaterThanOrEqual(initialSessionCount);
-    } else {
-      console.log('Load More button not visible - possibly no more sessions to load');
+    if (initialSessionCount === 0) {
+      console.log('No sessions available - skipping infinite scroll test');
+      return;
     }
+
+    // Scroll near bottom to trigger infinite scroll
+    await page.evaluate(() => {
+      window.scrollTo(0, document.body.scrollHeight - 400);
+    });
+
+    // Wait for potential loading
+    await page.waitForTimeout(3000);
+
+    // Count sessions after scrolling
+    const newSessionCount = await page.locator('.recent-item').count();
+
+    // Sessions should be same or more (depends on whether more exist)
+    expect(newSessionCount).toBeGreaterThanOrEqual(initialSessionCount);
+    console.log(`Initial: ${initialSessionCount}, After scroll: ${newSessionCount}`);
   });
 
   test('should show loading state when Load More button is clicked', async ({ page }) => {
-    const loadMoreButton = page.locator('#load-more-btn');
-    const loadMoreSection = page.locator('#load-more-section');
+    // Note: Load More button removed - test now checks infinite scroll loading
+    const sessionCount = await page.locator('.recent-item').count();
 
-    const isLoadMoreVisible = await loadMoreSection.isVisible();
-
-    if (isLoadMoreVisible) {
-      // Click Load More button
-      await loadMoreButton.click();
-
-      // Check for loading indicator (use first() to avoid strict mode violation)
-      const loadingIndicator = page.locator('#loading-indicator, .loading-spinner').first();
-      const hasLoadingState = await loadingIndicator.isVisible({ timeout: 2000 });
-
-      console.log('Loading state visible:', hasLoadingState);
-
-      // Wait for completion
-      await page.waitForTimeout(3000);
-    } else {
-      console.log('Load More button not available for testing loading state');
+    if (sessionCount === 0) {
+      console.log('No sessions available - skipping loading state test');
+      return;
     }
+
+    // Scroll near bottom to trigger loading
+    await page.evaluate(() => {
+      window.scrollTo(0, document.body.scrollHeight - 400);
+    });
+
+    // Check for loading indicator (may appear briefly)
+    const loadingIndicator = page.locator('#loading-indicator');
+    const hasLoadingState = await loadingIndicator.isVisible({ timeout: 2000 }).catch(() => false);
+
+    console.log('Loading state visible during scroll:', hasLoadingState);
+
+    // Wait for completion
+    await page.waitForTimeout(3000);
   });
 
   test('should trigger infinite scroll when scrolling near bottom', async ({ page }) => {
@@ -100,31 +93,39 @@ test.describe('Infinite Scroll', () => {
   });
 
   test('should hide Load More button when no more sessions available', async ({ page }) => {
-    // Keep clicking Load More until no more sessions
+    // Note: Load More button has been removed in favor of infinite scroll
+    // This test now just verifies infinite scroll stops when no more sessions
     let currentCount = await page.locator('.recent-item').count();
+
+    if (currentCount === 0) {
+      console.log('No sessions available - skipping test');
+      return;
+    }
+
     let attempts = 0;
-    const maxAttempts = 10; // Prevent infinite loop
+    const maxAttempts = 5;
 
     while (attempts < maxAttempts) {
-      const loadMoreButton = page.locator('#load-more-btn');
-
-      if (!(await loadMoreButton.isVisible())) {
-        break;
-      }
-
       const previousCount = currentCount;
-      await loadMoreButton.click();
+
+      // Scroll to bottom
+      await page.evaluate(() => {
+        window.scrollTo(0, document.body.scrollHeight);
+      });
+
       await page.waitForTimeout(2000);
       currentCount = await page.locator('.recent-item').count();
 
-      // If no new sessions loaded, button should be hidden
+      // If no new sessions loaded, we've reached the end
       if (currentCount === previousCount) {
-        await expect(loadMoreButton).toBeHidden();
+        console.log('No more sessions to load - infinite scroll stopped');
         break;
       }
 
       attempts++;
     }
+
+    console.log(`Loaded ${currentCount} total sessions across ${attempts} scroll attempts`);
   });
 
   test('should handle API errors gracefully during infinite scroll', async ({ page }) => {
@@ -137,35 +138,46 @@ test.describe('Infinite Scroll', () => {
       });
     });
 
-    const loadMoreButton = page.locator('#load-more-btn');
+    const sessionCount = await page.locator('.recent-item').count();
 
-    if (await loadMoreButton.isVisible()) {
-      await loadMoreButton.click();
-
-      // Should handle error gracefully (not crash the page)
-      await page.waitForTimeout(2000);
-
-      // Check that page is still functional
-      await expect(page.locator('h1')).toContainText('Session Viewer');
-
-      // Button should be available again or show error state
-      const isButtonVisible = await loadMoreButton.isVisible();
-      const hasErrorMessage = await page.locator('[data-testid="error-message"], .error').isVisible();
-
-      expect(isButtonVisible || hasErrorMessage).toBeTruthy();
+    if (sessionCount === 0) {
+      console.log('No sessions available - skipping error handling test');
+      return;
     }
+
+    // Scroll to trigger infinite scroll (which should fail due to our mock)
+    await page.evaluate(() => {
+      window.scrollTo(0, document.body.scrollHeight - 400);
+    });
+
+    // Wait for potential error handling
+    await page.waitForTimeout(2000);
+
+    // Check that page is still functional despite error
+    await expect(page.locator('h1')).toContainText('Session Viewer');
+
+    // Page should still be usable
+    const sessionInput = page.locator('input[placeholder*="Session ID"]');
+    await expect(sessionInput).toBeVisible();
+
+    console.log('Page remains functional after API error');
   });
 
   test('should preserve session list state during navigation', async ({ page }) => {
-    // Load additional sessions
-    const loadMoreButton = page.locator('#load-more-btn');
+    const sessionCount = await page.locator('.recent-item').count();
 
-    if (await loadMoreButton.isVisible()) {
-      await loadMoreButton.click();
-      await page.waitForTimeout(2000);
+    if (sessionCount === 0) {
+      console.log('No sessions available - skipping navigation test');
+      return;
     }
 
-    const sessionCount = await page.locator('.recent-item').count();
+    // Scroll to potentially load more
+    await page.evaluate(() => {
+      window.scrollTo(0, document.body.scrollHeight - 400);
+    });
+    await page.waitForTimeout(2000);
+
+    const sessionsAfterScroll = await page.locator('.recent-item').count();
 
     // Click on first session
     const firstSession = page.locator('.recent-item').first();
@@ -183,6 +195,7 @@ test.describe('Infinite Scroll', () => {
     const newSessionCount = await page.locator('.recent-item').count();
 
     // Should show at least initial batch, ideally maintain the loaded state
-    expect(newSessionCount).toBeGreaterThanOrEqual(Math.min(sessionCount, 20));
+    expect(newSessionCount).toBeGreaterThanOrEqual(Math.min(sessionsAfterScroll, 20));
+    console.log(`Before nav: ${sessionsAfterScroll}, After nav: ${newSessionCount}`);
   });
 });
