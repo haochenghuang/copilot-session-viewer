@@ -1396,6 +1396,20 @@
             }
           }
 
+          // 1b. VS Code source: collect subagent names from assistant.message data.subAgentName
+          // (VS Code does not emit subagent.started events; subagent identity is on the message)
+          for (const ev of sorted) {
+            if (ev.type === 'assistant.message' && ev.data?.subAgentName && ev.data?.subAgentId) {
+              const sid = ev.data.subAgentId;
+              if (!subagentInfo.has(sid)) {
+                subagentInfo.set(sid, {
+                  name: ev.data.subAgentName,
+                  colorIndex: colorIdx++
+                });
+              }
+            }
+          }
+
           if (subagentInfo.size === 0) return { ownerMap, subagentInfo };
 
           // 2. Build id → event lookup for parentId chain walking
@@ -1846,6 +1860,12 @@
             }
             // If not in subagentInfo, create a default entry
             return { name: subagentName, toolCallId: subagentId, colorIndex: Math.abs(hashCode(subagentId)) };
+          }
+          // VS Code format: subAgentId directly on the event data
+          if (event.data?.subAgentId) {
+            const sid = event.data.subAgentId;
+            const info = subagentInfo.get(sid);
+            if (info) return { name: info.name, toolCallId: sid, colorIndex: info.colorIndex };
           }
           // For regular events, look up ownership (Copilot format)
           const tcid = ownerMap.get(event.stableId);
