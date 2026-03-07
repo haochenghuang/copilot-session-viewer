@@ -371,7 +371,7 @@ describe('SessionController - Additional Coverage', () => {
       await controller.exportSession(mockReq, mockRes);
 
       expect(mockRes.status).toHaveBeenCalledWith(404);
-      expect(mockRes.json).toHaveBeenCalledWith({ error: 'Copilot source not found' });
+      expect(mockRes.json).toHaveBeenCalledWith({ error: 'Session file not found' });
     });
 
     it('should handle error during export', async () => {
@@ -427,7 +427,7 @@ describe('SessionController - Additional Coverage', () => {
       await controller.exportSession(mockReq, mockRes);
 
       expect(mockRes.status).toHaveBeenCalledWith(404);
-      expect(mockRes.json).toHaveBeenCalledWith({ error: 'Claude source not found' });
+      expect(mockRes.json).toHaveBeenCalledWith({ error: 'Session file not found' });
     });
   });
 
@@ -468,7 +468,7 @@ describe('SessionController - Additional Coverage', () => {
       await controller.exportSession(mockReq, mockRes);
 
       expect(mockRes.status).toHaveBeenCalledWith(404);
-      expect(mockRes.json).toHaveBeenCalledWith({ error: 'Pi-Mono source not found' });
+      expect(mockRes.json).toHaveBeenCalledWith({ error: 'Session file not found' });
     });
   });
 

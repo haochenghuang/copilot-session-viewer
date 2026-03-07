@@ -276,59 +276,72 @@ class SessionController {
       let sessionPath;
       let isDirectory = false;
 
-      if (session.source === 'copilot') {
-        const copilotSource = this.sessionService.sessionRepository.sources.find(s => s.type === 'copilot');
-        if (!copilotSource) {
-          return res.status(404).json({ error: 'Copilot source not found' });
-        }
-
-        const basePath = path.join(copilotSource.dir, sessionId);
+      if (session.directory) {
+        // Try session directory first (copilot dirs, vscode dirs)
         try {
-          const stats = await fs.promises.stat(basePath);
+          const stats = await fs.promises.stat(session.directory);
           if (stats.isDirectory()) {
-            sessionPath = basePath;
+            sessionPath = session.directory;
             isDirectory = true;
-          } else {
-            sessionPath = `${basePath}.jsonl`;
           }
         } catch {
-          sessionPath = `${basePath}.jsonl`;
+          // Fall through to filePath
         }
-      } else if (session.source === 'claude') {
-        const claudeSource = this.sessionService.sessionRepository.sources.find(s => s.type === 'claude');
-        if (!claudeSource) {
-          return res.status(404).json({ error: 'Claude source not found' });
-        }
+      }
 
-        // Claude sessions are in projects/*/sessionId.jsonl
-        const projectDirs = await fs.promises.readdir(path.join(claudeSource.dir, 'projects'));
-        for (const projectDir of projectDirs) {
-          const candidatePath = path.join(claudeSource.dir, 'projects', projectDir, `${sessionId}.jsonl`);
-          try {
-            await fs.promises.access(candidatePath);
-            sessionPath = candidatePath;
-            break;
-          } catch {
-            // Try next project
+      if (!sessionPath && session.filePath) {
+        // File-based sessions (claude .jsonl, pi-mono .jsonl, copilot .jsonl)
+        try {
+          await fs.promises.access(session.filePath);
+          sessionPath = session.filePath;
+        } catch {
+          // Not accessible
+        }
+      }
+
+      // Legacy source-specific lookup as fallback
+      if (!sessionPath) {
+        if (session.source === 'copilot') {
+          const copilotSource = this.sessionService.sessionRepository.sources.find(s => s.type === 'copilot');
+          if (copilotSource) {
+            const basePath = path.join(copilotSource.dir, sessionId);
+            try {
+              const stats = await fs.promises.stat(basePath);
+              if (stats.isDirectory()) {
+                sessionPath = basePath;
+                isDirectory = true;
+              } else {
+                sessionPath = `${basePath}.jsonl`;
+              }
+            } catch {
+              sessionPath = `${basePath}.jsonl`;
+            }
+          }
+        } else if (session.source === 'claude') {
+          const claudeSource = this.sessionService.sessionRepository.sources.find(s => s.type === 'claude');
+          if (claudeSource) {
+            const projectDirs = await fs.promises.readdir(path.join(claudeSource.dir, 'projects'));
+            for (const projectDir of projectDirs) {
+              const candidatePath = path.join(claudeSource.dir, 'projects', projectDir, `${sessionId}.jsonl`);
+              try {
+                await fs.promises.access(candidatePath);
+                sessionPath = candidatePath;
+                break;
+              } catch {
+                // Try next project
+              }
+            }
+          }
+        } else if (session.source === 'pi-mono') {
+          const piMonoSource = this.sessionService.sessionRepository.sources.find(s => s.type === 'pi-mono');
+          if (piMonoSource) {
+            const files = await fs.promises.readdir(piMonoSource.dir);
+            const matchingFile = files.find(f => f.includes(sessionId) && f.endsWith('.jsonl'));
+            if (matchingFile) {
+              sessionPath = path.join(piMonoSource.dir, matchingFile);
+            }
           }
         }
-
-        if (!sessionPath) {
-          return res.status(404).json({ error: 'Session file not found' });
-        }
-      } else if (session.source === 'pi-mono') {
-        const piMonoSource = this.sessionService.sessionRepository.sources.find(s => s.type === 'pi-mono');
-        if (!piMonoSource) {
-          return res.status(404).json({ error: 'Pi-Mono source not found' });
-        }
-
-        // Pi-Mono sessions are timestamp-based JSONL files
-        const files = await fs.promises.readdir(piMonoSource.dir);
-        const matchingFile = files.find(f => f.includes(sessionId) && f.endsWith('.jsonl'));
-        if (!matchingFile) {
-          return res.status(404).json({ error: 'Session file not found' });
-        }
-        sessionPath = path.join(piMonoSource.dir, matchingFile);
       }
 
       if (!sessionPath) {
