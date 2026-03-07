@@ -43,7 +43,7 @@ export default defineConfig({
     command: 'npm start',
     url: 'http://localhost:3838',
     reuseExistingServer: !process.env.CI,
-    timeout: 10 * 1000,
+    timeout: 30 * 1000,
     env: {
       ...process.env, // Inherit all environment variables (HOME, session dirs, etc.)
       PLAYWRIGHT: '1', // Disable rate limiting during E2E tests

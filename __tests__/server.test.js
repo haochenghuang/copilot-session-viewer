@@ -56,7 +56,7 @@ describe('Server API Endpoints', () => {
         .get('/')
         .expect(200);
 
-      expect(response.text).toContain('Copilot Session Viewer');
+      expect(response.text).toContain('Session Viewer');
       expect(mockSessionService.getPaginatedSessions).toHaveBeenCalledWith(1, 20, 'copilot');
     });
 

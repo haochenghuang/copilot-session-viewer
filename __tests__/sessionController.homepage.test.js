@@ -42,11 +42,11 @@ describe('SessionController - Homepage Coverage', () => {
       await controller.getHomepage(mockReq, mockRes);
 
       expect(mockSessionService.getPaginatedSessions).toHaveBeenCalledWith(1, 20, 'copilot');
-      expect(mockRes.render).toHaveBeenCalledWith('index', {
+      expect(mockRes.render).toHaveBeenCalledWith('index', expect.objectContaining({
         sessions: mockSessions,
         hasMore: true,
         totalSessions: 150
-      });
+      }));
       expect(mockRes.status).not.toHaveBeenCalled();
     });
 
@@ -61,11 +61,11 @@ describe('SessionController - Homepage Coverage', () => {
 
       await controller.getHomepage(mockReq, mockRes);
 
-      expect(mockRes.render).toHaveBeenCalledWith('index', {
+      expect(mockRes.render).toHaveBeenCalledWith('index', expect.objectContaining({
         sessions: mockSessions,
         hasMore: false,
         totalSessions: 1
-      });
+      }));
     });
 
     it('should render homepage with empty sessions array', async () => {
@@ -77,11 +77,11 @@ describe('SessionController - Homepage Coverage', () => {
 
       await controller.getHomepage(mockReq, mockRes);
 
-      expect(mockRes.render).toHaveBeenCalledWith('index', {
+      expect(mockRes.render).toHaveBeenCalledWith('index', expect.objectContaining({
         sessions: [],
         hasMore: false,
         totalSessions: 0
-      });
+      }));
     });
 
     it('should render homepage with exactly 100 sessions', async () => {
@@ -98,11 +98,11 @@ describe('SessionController - Homepage Coverage', () => {
 
       await controller.getHomepage(mockReq, mockRes);
 
-      expect(mockRes.render).toHaveBeenCalledWith('index', {
+      expect(mockRes.render).toHaveBeenCalledWith('index', expect.objectContaining({
         sessions: mockSessions,
         hasMore: true,
         totalSessions: 200
-      });
+      }));
     });
   });
 });

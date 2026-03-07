@@ -480,7 +480,7 @@ class SessionRepository {
             const realWorkspacePath = await this._resolveVsCodeWorkspacePath(path.join(workspaceStorageDir, hash));
 
             // Same estimation logic as scan path
-            const fileMtime2 = stats.mtime;
+            const _fileMtime2 = stats.mtime;
             // Count tools for estimation
             let toolCount2 = 0;
             for (const req of requests) {
@@ -919,7 +919,7 @@ class SessionRepository {
         // Strategy: 
         //   - If session has many tool invocations (agentic), estimate duration from tool count
         //   - Otherwise fall back to request timestamps
-        const fileMtime = stats.mtime;
+        const _fileMtime = stats.mtime;
         let effectiveEndTime;
         if (toolCount > 10 && lastReqTime) {
           // Agentic session: estimate ~3.5s per tool invocation as a rough heuristic
