@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Copilot Session Viewer</title>
+  <title>Session Viewer</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
@@ -489,7 +489,7 @@
 <body>
   <div class="container">
     <h1>🤖 Session Viewer</h1>
-    <p class="subtitle">View session logs from Copilot, Claude Code, and Pi-Mono</p>
+    <p class="subtitle">View session logs from Copilot CLI, Copilot Chat, Claude Code, and Pi-Mono</p>
     
     <form id="sessionForm">
       <div class="input-group">
@@ -803,7 +803,7 @@
       // Add source badge (use backend-provided metadata - Violation #3 & #5 fix)
       const sourceClass = session.sourceBadgeClass || 'source-copilot';
       const sourceLabel = session.sourceName || 'Copilot';
-      badges += `<span class="status-badge ${sourceClass}" title="${sourceLabel} CLI">${sourceLabel}</span>`;
+      badges += `<span class="status-badge ${sourceClass}" title="${sourceLabel}">${sourceLabel}</span>`;
 
       if (session.sessionStatus === 'wip') {
         badges += '<span class="status-badge wip" title="Session in progress">🔄 WIP</span>';
@@ -812,7 +812,7 @@
         badges += '<span class="status-badge imported" title="Imported session">📥</span>';
       }
       if (session.hasInsight) {
-        badges += '<span class="status-badge insight" title="Has Copilot Insight">💡</span>';
+        badges += '<span class="status-badge insight" title="Has Agent Review">💡</span>';
       }
       // Add model and version badges
       if (session.selectedModel) {
@@ -828,7 +828,7 @@
         badges += `<span class="status-badge model ${modelClass}" title="Model: ${escapeHtml(session.selectedModel)}">${escapeHtml(modelShort)}</span>`;
       }
       if (session.copilotVersion) {
-        badges += `<span class="status-badge version" title="Copilot CLI version">${escapeHtml(session.copilotVersion)}</span>`;
+        badges += `<span class="status-badge version" title="CLI version">${escapeHtml(session.copilotVersion)}</span>`;
       }
       
       let summaryHtml = '';
