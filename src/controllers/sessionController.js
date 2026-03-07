@@ -359,12 +359,23 @@ class SessionController {
       const zip = new AdmZip();
 
       if (isDirectory) {
-        // Add entire directory
+        // Add entire directory (includes tags.json if present)
         zip.addLocalFolder(sessionPath, sessionId);
       } else {
-        // Add single file
+        // Add session file
         const fileName = path.basename(sessionPath);
         zip.addLocalFile(sessionPath, '', fileName);
+
+        // Also include tags file if it exists
+        const TagService = require('../services/tagService');
+        const tagService = new TagService();
+        const tagsFilePath = tagService.getSessionTagsFilePath(session);
+        try {
+          await fs.promises.access(tagsFilePath);
+          zip.addLocalFile(tagsFilePath, '', path.basename(tagsFilePath));
+        } catch {
+          // No tags file, skip
+        }
       }
 
       // Send zip file
