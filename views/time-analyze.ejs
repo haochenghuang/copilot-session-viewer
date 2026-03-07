@@ -2211,7 +2211,21 @@
               if (items[i].rowType === 'user-req') break; // next user-req
               if (items[i].rowType === 'subagent') children.push(items[i]);
             }
-            if (children.length === 0) return { left: '0%', width: '0%' };
+            if (children.length === 0) {
+              // No subagents — position this user-req at the end of previous subagents
+              // by finding cumulative tool count up to this point
+              const subagentItems = items.filter(it => it.rowType !== 'user-req');
+              const totalToolCount = subagentItems.reduce((sum, it) => sum + (it.toolCount || 0), 0);
+              if (totalToolCount === 0) return { left: '0%', width: '0%' };
+              // Sum tools of all subagents before this user-req in the items array
+              let cumTools = 0;
+              for (let i = 0; i < idx; i++) {
+                if (items[i].rowType === 'subagent') cumTools += (items[i].toolCount || 0);
+              }
+              const leftPct = (cumTools / totalToolCount) * 100;
+              // Minimal width bar (at least 1%)
+              return { left: leftPct + '%', width: Math.max(1, (1 / totalToolCount) * 100) + '%' };
+            }
             
             const firstPos = ganttSequencePosition(children[0]);
             const lastPos = ganttSequencePosition(children[children.length - 1]);
