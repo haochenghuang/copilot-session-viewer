@@ -56,14 +56,15 @@ class TagService {
    * @returns {string} Path to tags.json
    */
   getSessionTagsFilePath(session) {
-    if (session.directory) {
-      return path.join(session.directory, 'tags.json');
-    }
-    // File-based sessions (e.g. Claude .jsonl): store tags alongside the file
+    // File-based sessions (e.g. Claude .jsonl): per-file tags to avoid sharing
     if (session.filePath) {
       const dir = path.dirname(session.filePath);
       const base = path.basename(session.filePath, path.extname(session.filePath));
       return path.join(dir, `${base}.tags.json`);
+    }
+    // Directory-based sessions (e.g. Copilot CLI): tags.json inside session dir
+    if (session.directory) {
+      return path.join(session.directory, 'tags.json');
     }
     // Fallback: store in central location by session id
     return path.join(this.knownTagsDir, 'session-tags', `${session.id}.tags.json`);
