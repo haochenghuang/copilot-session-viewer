@@ -60,8 +60,9 @@ class InsightService {
    * @returns {Promise<Object>} Insight status and report
    */
   async generateInsight(sessionId, sessionPath, source = 'copilot', forceRegenerate = false) {
-    const insightFile = path.join(sessionPath, 'agent-review.md');
-    const lockFile = path.join(sessionPath, 'agent-review.md.lock');
+    // Use per-session insight file to avoid collisions in shared directories
+    const insightFile = path.join(sessionPath, `${sessionId}.agent-review.md`);
+    const lockFile = path.join(sessionPath, `${sessionId}.agent-review.md.lock`);
     
     // Determine events file location based on directory structure
     // Try standard events.jsonl first, then <sessionId>.jsonl (for file-type sessions),
@@ -184,7 +185,7 @@ class InsightService {
     await fs.mkdir(tmpDir, { recursive: true});
 
     const prompt = this._buildPrompt(insightFile, eventsFile);
-    const outputFile = path.join(sessionPath, 'agent-review.md.tmp');
+    const outputFile = path.join(sessionPath, `${sessionId}.agent-review.md.tmp`);
 
     // Spawn analysis tool directly (no shell)
     const cliPath = toolConfig.cli;
@@ -451,17 +452,17 @@ IMPORTANT CONSTRAINTS:
    * @returns {Promise<Object>} Status object
    */
   async getInsightStatus(sessionId, sessionPath, _source = 'copilot') {
-    return await this._getStatusForSource(sessionPath);
+    return await this._getStatusForSource(sessionId, sessionPath);
   }
 
   /**
    * Get status for a specific session directory
    * @private
    */
-  async _getStatusForSource(sessionPath) {
-    const insightFile = path.join(sessionPath, 'agent-review.md');
-    const lockFile = path.join(sessionPath, 'agent-review.md.lock');
-    const tmpFile = path.join(sessionPath, 'agent-review.md.tmp');
+  async _getStatusForSource(sessionId, sessionPath) {
+    const insightFile = path.join(sessionPath, `${sessionId}.agent-review.md`);
+    const lockFile = path.join(sessionPath, `${sessionId}.agent-review.md.lock`);
+    const tmpFile = path.join(sessionPath, `${sessionId}.agent-review.md.tmp`);
 
     try {
       const report = await fs.readFile(insightFile, 'utf-8');
@@ -517,7 +518,7 @@ IMPORTANT CONSTRAINTS:
    * @returns {Promise<Object>} Result object
    */
   async deleteInsight(sessionId, sessionPath, _source = 'copilot') {
-    const insightFile = path.join(sessionPath, 'agent-review.md');
+    const insightFile = path.join(sessionPath, `${sessionId}.agent-review.md`);
 
     try {
       await fs.unlink(insightFile);

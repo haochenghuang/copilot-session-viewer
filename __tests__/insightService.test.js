@@ -88,7 +88,7 @@ describe('InsightService', () => {
       const sessionPath = path.join(tmpDir, sessionId);
       await fs.mkdir(sessionPath, { recursive: true });
 
-      const insightFile = path.join(sessionPath, 'agent-review.md');
+      const insightFile = path.join(sessionPath, `${sessionId}.agent-review.md`);
       const reportContent = '# Test Report\nThis is a test report.';
       await fs.writeFile(insightFile, reportContent);
 
@@ -106,7 +106,7 @@ describe('InsightService', () => {
       const eventsFile = path.join(sessionPath, 'events.jsonl');
       await fs.writeFile(eventsFile, '{"type":"test","data":"test"}');
 
-      const insightFile = path.join(sessionPath, 'agent-review.md');
+      const insightFile = path.join(sessionPath, `${sessionId}.agent-review.md`);
       await fs.writeFile(insightFile, '# Old Report');
 
       // Mock spawn for copilot process
@@ -120,7 +120,7 @@ describe('InsightService', () => {
       expect(spawn).toHaveBeenCalled();
 
       // Verify lock was created
-      const lockFile = path.join(sessionPath, 'agent-review.md.lock');
+      const lockFile = path.join(sessionPath, `${sessionId}.agent-review.md.lock`);
       const lockExists = await fs.access(lockFile).then(() => true).catch(() => false);
       expect(lockExists).toBe(true);
     });
@@ -147,7 +147,7 @@ describe('InsightService', () => {
       const sessionPath = path.join(tmpDir, sessionId);
       await fs.mkdir(sessionPath, { recursive: true });
 
-      const lockFile = path.join(sessionPath, 'agent-review.md.lock');
+      const lockFile = path.join(sessionPath, `${sessionId}.agent-review.md.lock`);
       await fs.writeFile(lockFile, JSON.stringify({
         sessionId,
         startTime: new Date().toISOString(),
@@ -167,7 +167,7 @@ describe('InsightService', () => {
       const eventsFile = path.join(sessionPath, 'events.jsonl');
       await fs.writeFile(eventsFile, '{"type":"test"}');
 
-      const lockFile = path.join(sessionPath, 'agent-review.md.lock');
+      const lockFile = path.join(sessionPath, `${sessionId}.agent-review.md.lock`);
       await fs.writeFile(lockFile, JSON.stringify({
         sessionId,
         startTime: new Date(Date.now() - config.INSIGHT_TIMEOUT_MS - 10000).toISOString(),
@@ -265,8 +265,8 @@ describe('InsightService', () => {
       await fs.mkdir(sessionPath, { recursive: true });
 
       const eventsFile = path.join(sessionPath, 'events.jsonl');
-      const insightFile = path.join(sessionPath, 'agent-review.md');
-      const tmpFile = path.join(sessionPath, 'agent-review.md.tmp');
+      const insightFile = path.join(sessionPath, `${sessionId}.agent-review.md`);
+      const tmpFile = path.join(sessionPath, `${sessionId}.agent-review.md.tmp`);
       await fs.writeFile(eventsFile, '{"type":"test"}');
 
       const { mockProcess } = createMockCopilotProcess();
@@ -299,7 +299,7 @@ describe('InsightService', () => {
       await fs.mkdir(sessionPath, { recursive: true });
 
       const eventsFile = path.join(sessionPath, 'events.jsonl');
-      const tmpFile = path.join(sessionPath, 'agent-review.md.tmp');
+      const tmpFile = path.join(sessionPath, `${sessionId}.agent-review.md.tmp`);
       await fs.writeFile(eventsFile, '{"type":"test"}');
 
       const { mockProcess } = createMockCopilotProcess();
@@ -383,8 +383,8 @@ describe('InsightService', () => {
 
       const eventsFile = path.join(sessionPath, 'events.jsonl');
       await fs.writeFile(eventsFile, '{"type":"test"}');
-      const insightFile = path.join(sessionPath, 'agent-review.md');
-      const tmpFile = path.join(sessionPath, 'agent-review.md.tmp');
+      const insightFile = path.join(sessionPath, `${sessionId}.agent-review.md`);
+      const tmpFile = path.join(sessionPath, `${sessionId}.agent-review.md.tmp`);
 
       const { mockProcess, mockStderr } = createMockCopilotProcess();
       const { mockReadStream } = setupFileMocks();
@@ -424,7 +424,7 @@ describe('InsightService', () => {
 
       const eventsFile = path.join(sessionPath, 'events.jsonl');
       await fs.writeFile(eventsFile, '{"type":"test"}');
-      const tmpFile = path.join(sessionPath, 'agent-review.md.tmp');
+      const tmpFile = path.join(sessionPath, `${sessionId}.agent-review.md.tmp`);
 
       const { mockProcess, mockStderr } = createMockCopilotProcess();
       const { mockReadStream } = setupFileMocks();
@@ -499,7 +499,7 @@ describe('InsightService', () => {
       // Mock readFile to throw error during finalization
       const originalReadFile = fs.readFile.bind(fs);
       jest.spyOn(fs, 'readFile').mockImplementation(async (filePath, ...args) => {
-        if (filePath.toString().includes('agent-review.md.tmp')) {
+        if (filePath.toString().includes(`${sessionId}.agent-review.md.tmp`)) {
           throw new Error('Read failed');
         }
         return originalReadFile(filePath, ...args);
@@ -524,7 +524,7 @@ describe('InsightService', () => {
       const sessionPath = path.join(tmpDir, sessionId);
       await fs.mkdir(sessionPath, { recursive: true });
 
-      const insightFile = path.join(sessionPath, 'agent-review.md');
+      const insightFile = path.join(sessionPath, `${sessionId}.agent-review.md`);
       const reportContent = '# Test Report';
       await fs.writeFile(insightFile, reportContent);
 
@@ -539,7 +539,7 @@ describe('InsightService', () => {
       const sessionPath = path.join(tmpDir, sessionId);
       await fs.mkdir(sessionPath, { recursive: true });
 
-      const lockFile = path.join(sessionPath, 'agent-review.md.lock');
+      const lockFile = path.join(sessionPath, `${sessionId}.agent-review.md.lock`);
       await fs.writeFile(lockFile, JSON.stringify({ sessionId }));
 
       const result = await service.getInsightStatus(sessionId, sessionPath, 'copilot');
@@ -554,8 +554,8 @@ describe('InsightService', () => {
       const sessionPath = path.join(tmpDir, sessionId);
       await fs.mkdir(sessionPath, { recursive: true });
 
-      const lockFile = path.join(sessionPath, 'agent-review.md.lock');
-      const tmpFile = path.join(sessionPath, 'agent-review.md.tmp');
+      const lockFile = path.join(sessionPath, `${sessionId}.agent-review.md.lock`);
+      const tmpFile = path.join(sessionPath, `${sessionId}.agent-review.md.tmp`);
       await fs.writeFile(lockFile, JSON.stringify({ sessionId }));
       await fs.writeFile(tmpFile, 'Generating insight...');
 
@@ -569,7 +569,7 @@ describe('InsightService', () => {
       const sessionPath = path.join(tmpDir, sessionId);
       await fs.mkdir(sessionPath, { recursive: true });
 
-      const lockFile = path.join(sessionPath, 'agent-review.md.lock');
+      const lockFile = path.join(sessionPath, `${sessionId}.agent-review.md.lock`);
       await fs.writeFile(lockFile, JSON.stringify({ sessionId }));
 
       // Mock fs.stat to return old birthtime (utimes doesn't change birthtime)
@@ -595,8 +595,8 @@ describe('InsightService', () => {
       const sessionPath = path.join(tmpDir, sessionId);
       await fs.mkdir(sessionPath, { recursive: true });
 
-      const lockFile = path.join(sessionPath, 'agent-review.md.lock');
-      const tmpFile = path.join(sessionPath, 'agent-review.md.tmp');
+      const lockFile = path.join(sessionPath, `${sessionId}.agent-review.md.lock`);
+      const tmpFile = path.join(sessionPath, `${sessionId}.agent-review.md.tmp`);
       await fs.writeFile(lockFile, JSON.stringify({ sessionId }));
       await fs.writeFile(tmpFile, 'Partial output before timeout');
 
@@ -631,7 +631,7 @@ describe('InsightService', () => {
       const sessionPath = path.join(tmpDir, sessionId);
       await fs.mkdir(sessionPath, { recursive: true });
 
-      const lockFile = path.join(sessionPath, 'agent-review.md.lock');
+      const lockFile = path.join(sessionPath, `${sessionId}.agent-review.md.lock`);
       await fs.writeFile(lockFile, JSON.stringify({ sessionId }));
       // Don't create tmp file
 
@@ -647,7 +647,7 @@ describe('InsightService', () => {
       const sessionPath = path.join(tmpDir, sessionId);
       await fs.mkdir(sessionPath, { recursive: true });
 
-      const insightFile = path.join(sessionPath, 'agent-review.md');
+      const insightFile = path.join(sessionPath, `${sessionId}.agent-review.md`);
       await fs.writeFile(insightFile, '# Test Report');
 
       const result = await service.deleteInsight(sessionId, sessionPath, 'copilot');
@@ -668,13 +668,13 @@ describe('InsightService', () => {
       const sessionPath = path.join(tmpDir, sessionId);
       await fs.mkdir(sessionPath, { recursive: true });
 
-      const insightFile = path.join(sessionPath, 'agent-review.md');
+      const insightFile = path.join(sessionPath, `${sessionId}.agent-review.md`);
       await fs.writeFile(insightFile, '# Test Report');
 
       // Mock unlink to throw non-ENOENT error
       const originalUnlink = fs.unlink.bind(fs);
       jest.spyOn(fs, 'unlink').mockImplementation(async (filePath) => {
-        if (filePath.toString().includes('agent-review.md')) {
+        if (filePath.toString().includes(`${sessionId}.agent-review.md`)) {
           const err = new Error('Permission denied');
           err.code = 'EPERM';
           throw err;
@@ -978,7 +978,7 @@ Regular line here
 
   describe('_buildPrompt', () => {
     it('should build a prompt with correct structure', () => {
-      const insightFile = path.join(tmpDir, sessionId, 'agent-review.md');
+      const insightFile = path.join(tmpDir, sessionId, `${sessionId}.agent-review.md`);
       const eventsFile = path.join(tmpDir, sessionId, 'events.jsonl');
       const prompt = service._buildPrompt(insightFile, eventsFile);
 
@@ -998,7 +998,7 @@ Regular line here
     });
 
     it('should include correct file paths', () => {
-      const insightFile = path.join(tmpDir, sessionId, 'agent-review.md');
+      const insightFile = path.join(tmpDir, sessionId, `${sessionId}.agent-review.md`);
       const eventsFile = path.join(tmpDir, sessionId, 'events.jsonl');
       const prompt = service._buildPrompt(insightFile, eventsFile);
 
@@ -1013,7 +1013,7 @@ Regular line here
     });
 
     it('should include output file paths for sub-agents', () => {
-      const insightFile = path.join(tmpDir, sessionId, 'agent-review.md');
+      const insightFile = path.join(tmpDir, sessionId, `${sessionId}.agent-review.md`);
       const eventsFile = path.join(tmpDir, sessionId, 'events.jsonl');
       const prompt = service._buildPrompt(insightFile, eventsFile);
 
@@ -1023,7 +1023,7 @@ Regular line here
     });
 
     it('should specify final output path', () => {
-      const insightFile = path.join(tmpDir, sessionId, 'agent-review.md');
+      const insightFile = path.join(tmpDir, sessionId, `${sessionId}.agent-review.md`);
       const eventsFile = path.join(tmpDir, sessionId, 'events.jsonl');
       const prompt = service._buildPrompt(insightFile, eventsFile);
 
@@ -1031,7 +1031,7 @@ Regular line here
     });
 
     it('should include analysis requirements', () => {
-      const insightFile = path.join(tmpDir, sessionId, 'agent-review.md');
+      const insightFile = path.join(tmpDir, sessionId, `${sessionId}.agent-review.md`);
       const eventsFile = path.join(tmpDir, sessionId, 'events.jsonl');
       const prompt = service._buildPrompt(insightFile, eventsFile);
 
@@ -1044,7 +1044,7 @@ Regular line here
     });
 
     it('should include character limit constraint', () => {
-      const insightFile = path.join(tmpDir, sessionId, 'agent-review.md');
+      const insightFile = path.join(tmpDir, sessionId, `${sessionId}.agent-review.md`);
       const eventsFile = path.join(tmpDir, sessionId, 'events.jsonl');
       const prompt = service._buildPrompt(insightFile, eventsFile);
 
@@ -1052,7 +1052,7 @@ Regular line here
     });
 
     it('should emphasize waiting for all sub-agents', () => {
-      const insightFile = path.join(tmpDir, sessionId, 'agent-review.md');
+      const insightFile = path.join(tmpDir, sessionId, `${sessionId}.agent-review.md`);
       const eventsFile = path.join(tmpDir, sessionId, 'events.jsonl');
       const prompt = service._buildPrompt(insightFile, eventsFile);
 
@@ -1061,7 +1061,7 @@ Regular line here
     });
 
     it('should include cleanup instructions', () => {
-      const insightFile = path.join(tmpDir, sessionId, 'agent-review.md');
+      const insightFile = path.join(tmpDir, sessionId, `${sessionId}.agent-review.md`);
       const eventsFile = path.join(tmpDir, sessionId, 'events.jsonl');
       const prompt = service._buildPrompt(insightFile, eventsFile);
 
@@ -1070,7 +1070,7 @@ Regular line here
     });
 
     it('should use dynamic events filename', () => {
-      const insightFile = path.join(tmpDir, sessionId, 'agent-review.md');
+      const insightFile = path.join(tmpDir, sessionId, `${sessionId}.agent-review.md`);
       const eventsFile = path.join(tmpDir, sessionId, '2026-01-01T00-00-00-000Z_abc123.jsonl');
       const prompt = service._buildPrompt(insightFile, eventsFile);
 

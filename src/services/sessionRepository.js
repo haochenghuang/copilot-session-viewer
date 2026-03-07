@@ -594,7 +594,7 @@ class SessionRepository {
     const workspaceFile = path.join(fullPath, 'workspace.yaml');
     const eventsFile = path.join(fullPath, 'events.jsonl');
     const importedMarkerFile = path.join(fullPath, '.imported');
-    const insightReportFile = path.join(fullPath, 'agent-review.md');
+    const insightReportFile = path.join(fullPath, `${entry}.agent-review.md`);
 
     // Parse workspace.yaml if exists, otherwise use defaults
     const workspace = await fileExists(workspaceFile) 
