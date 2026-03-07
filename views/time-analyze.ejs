@@ -1983,22 +1983,23 @@
           if (!isVSCodeSession.value) return [];
 
           const sorted = sortedEvents.value;
-          const subagentMap = new Map(); // subAgentName -> { events, toolCount, firstIndex, status }
+          const subagentMap = new Map(); // subAgentId -> { events, toolCount, firstIndex, status, name }
 
-          for (const ev of sorted) {
+          for (let i = 0; i < sorted.length; i++) {
+            const ev = sorted[i];
             if (ev.type === 'assistant.message' && ev.data?.subAgentName) {
-              const name = ev.data.subAgentName;
-              if (!subagentMap.has(name)) {
-                subagentMap.set(name, {
-                  name,
+              const id = ev.data.subAgentId || ev.data.subAgentName;
+              if (!subagentMap.has(id)) {
+                subagentMap.set(id, {
+                  name: ev.data.subAgentName,
                   events: [],
                   toolCount: 0,
-                  firstIndex: ev._fileIndex || 0,
-                  status: 'completed', // Default to completed
+                  firstIndex: i, // use array index as stable position
+                  status: 'completed',
                   subAgentId: ev.data.subAgentId
                 });
               }
-              const entry = subagentMap.get(name);
+              const entry = subagentMap.get(id);
               entry.events.push(ev);
 
               // Count tools
@@ -2028,19 +2029,22 @@
           if (isVSCodeSession.value) {
             const vsAgents = vsCodeSubagents.value;
             
-            // Collect user messages for user-req rows
-            const userMessages = sorted.filter(e => e.type === 'user.message');
+            // Collect user messages with their array index positions
+            const userMessages = [];
+            for (let i = 0; i < sorted.length; i++) {
+              if (sorted[i].type === 'user.message') {
+                userMessages.push({ event: sorted[i], sortedIndex: i });
+              }
+            }
             
             if (userMessages.length > 0 && vsAgents.length > 0) {
               // Build user-req groups: each user message owns the subagents that follow it
-              // until the next user message
+              // until the next user message (using sorted array indices)
               for (let ui = 0; ui < userMessages.length; ui++) {
-                const userMsg = userMessages[ui];
-                const nextUserMsg = userMessages[ui + 1];
-                const userIdx = userMsg._fileIndex || 0;
-                const nextIdx = nextUserMsg ? (nextUserMsg._fileIndex || Infinity) : Infinity;
+                const { event: userMsg, sortedIndex: userIdx } = userMessages[ui];
+                const nextIdx = userMessages[ui + 1] ? userMessages[ui + 1].sortedIndex : Infinity;
                 
-                // Find subagents belonging to this user request
+                // Find subagents belonging to this user request (by sorted array index)
                 const reqAgents = vsAgents.filter(sa => 
                   sa.firstIndex >= userIdx && sa.firstIndex < nextIdx
                 );
@@ -2058,7 +2062,7 @@
                   toolCount: totalTools,
                   sequenceIndex: userIdx,
                   isSequenceEstimated: true,
-                  duration: totalTools, // pseudo-duration based on tool count
+                  duration: totalTools,
                 });
                 
                 // Push subagent rows under this user request
@@ -2072,7 +2076,7 @@
                     sequenceIndex: vsAgent.firstIndex,
                     isSequenceEstimated: true,
                     duration: vsAgent.toolCount,
-                    indented: true, // indent under user-req
+                    indented: true,
                   });
                 }
               }
