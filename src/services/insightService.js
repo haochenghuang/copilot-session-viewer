@@ -28,6 +28,12 @@ class InsightService {
         args: (tmpDir, prompt) => ['--config-dir', tmpDir, '--yolo', '-p', prompt],
         cwd: sessionPath
       },
+      vscode: {
+        name: 'Copilot',
+        cli: 'copilot',
+        args: (tmpDir, prompt) => ['--config-dir', tmpDir, '--yolo', '-p', prompt],
+        cwd: sessionPath
+      },
       claude: {
         name: 'Claude Code',
         cli: 'claude',
