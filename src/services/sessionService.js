@@ -179,7 +179,40 @@ class SessionService {
           parsed = vscodeParser.parseVsCode(sessionJson);
         }
 
-        return this._expandVsCodeEvents(parsed.allEvents);
+        let events = this._expandVsCodeEvents(parsed.allEvents);
+
+        // Bug fix #2: Use file modification time as session end time
+        // VSCode sessions only record request.timestamp, not completion time
+        // For agentic sessions with sub-agents, actual work takes much longer
+        if (events.length > 0) {
+          try {
+            const stats = await fs.promises.stat(session.filePath);
+            const fileMtime = new Date(stats.mtime).toISOString();
+
+            // Check if the last event timestamp is much earlier than file mtime
+            const lastEvent = events[events.length - 1];
+            if (lastEvent && lastEvent.timestamp) {
+              const lastEventTime = new Date(lastEvent.timestamp).getTime();
+              const fileTime = new Date(fileMtime).getTime();
+              const diffSeconds = (fileTime - lastEventTime) / 1000;
+
+              // If difference is more than 10 seconds, use file mtime as end time
+              if (diffSeconds > 10) {
+                // Update the last event's timestamp to file modification time
+                lastEvent.timestamp = fileMtime;
+                console.log(`[VSCode] Updated session ${session.id} end time to file mtime (${diffSeconds.toFixed(0)}s difference)`);
+              }
+            }
+          } catch (err) {
+            console.error('[VSCode] Error getting file mtime:', err);
+          }
+        }
+
+        // Bug fix #1: Generate tool.execution_start/complete events from data.tools array
+        // This expansion must happen here before returning, since VSCode bypasses the normal pipeline
+        events = this._expandVsCodeToTimelineFormat(events);
+
+        return events;
       } catch (err) {
         console.error('Error reading VSCode session:', err);
         return [];
@@ -262,6 +295,7 @@ class SessionService {
       // But we need to merge toolResult events into their parent assistant messages
       this._mergePiMonoToolResults(events);
     }
+    // Note: VSCode expansion is handled in the VSCode block above (before early return)
     
     // Clean up events for timeline rendering
     events = events.filter(e => {
@@ -1810,6 +1844,72 @@ class SessionService {
 
       // Keep other events as-is
       expanded.push(event);
+    }
+
+    return expanded;
+  }
+
+  /**
+   * Expand VSCode format to timeline format with tool.execution_start/complete events
+   * VSCode events already have assistant.message events with data.tools arrays (from _expandVsCodeEvents)
+   * This method generates tool.execution_start/complete events for the time-analyze page
+   * @private
+   * @param {Array} events - VSCode events with assistant.message events containing data.tools
+   * @returns {Array} Expanded events with tool execution events
+   */
+  _expandVsCodeToTimelineFormat(events) {
+    const expanded = [];
+
+    for (let i = 0; i < events.length; i++) {
+      const event = events[i];
+
+      // Keep the original event
+      expanded.push(event);
+
+      // Generate tool.execution_start and tool.execution_complete for assistant.message events with tools
+      if (event.type === 'assistant.message' && event.data?.tools && event.data.tools.length > 0) {
+        event.data.tools.forEach((tool, idx) => {
+          // Skip if tool doesn't have required fields
+          if (!tool.id || !tool.name) return;
+
+          const toolStartTime = tool.startTime || event.timestamp;
+          const toolEndTime = tool.endTime || event.timestamp;
+
+          // Generate tool.execution_start event
+          expanded.push({
+            type: 'tool.execution_start',
+            id: `${tool.id}-start`,
+            timestamp: toolStartTime,
+            parentId: event.id,
+            data: {
+              toolCallId: tool.id,
+              toolName: tool.name,
+              tool: tool.name, // Alias for compatibility
+              arguments: tool.input || {}
+            },
+            _synthetic: true,
+            _fileIndex: event._fileIndex ? event._fileIndex + 0.1 + (idx * 0.02) : undefined
+          });
+
+          // Generate tool.execution_complete event
+          expanded.push({
+            type: 'tool.execution_complete',
+            id: `${tool.id}-complete`,
+            timestamp: toolEndTime,
+            parentId: tool.id,
+            data: {
+              toolCallId: tool.id,
+              toolName: tool.name,
+              tool: tool.name, // Alias
+              result: tool.result || null,
+              error: tool.error || (tool.status === 'error' ? 'Tool execution failed' : null),
+              isError: tool.status === 'error'
+            },
+            _synthetic: true,
+            _fileIndex: event._fileIndex ? event._fileIndex + 0.15 + (idx * 0.02) : undefined
+          });
+        });
+      }
     }
 
     return expanded;

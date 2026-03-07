@@ -1555,7 +1555,7 @@
               });
               
               // Render frontmatter as table (sanitize key/value)
-              let tableHTML = '<table style="margin-bottom: 16px; border-collapse: collapse;"><tbody>';
+              let tableHTML = '<table style="margin-bottom: 16px; border-collapse: collapse; width: 100%;"><tbody>';
               pairs.forEach(pair => {
                 const sanitizedKey = DOMPurify.sanitize(pair.key, { ALLOWED_TAGS: [] });
                 const sanitizedValue = DOMPurify.sanitize(pair.value, { ALLOWED_TAGS: [] });
@@ -2529,7 +2529,7 @@
                         <td>Branch</td>
                         <td>{{ metadata.branch }}</td>
                       </tr>
-                      <tr v-if="metadata.cwd">
+                      <tr v-if="metadata.cwd && !metadata.repo">
                         <td>Repo</td>
                         <td>{{ metadata.cwd }}</td>
                       </tr>

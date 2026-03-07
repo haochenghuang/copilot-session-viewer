@@ -470,25 +470,43 @@ class SessionRepository {
             const createdAt = sessionJson.creationDate
               ? new Date(sessionJson.creationDate)
               : (firstReq.timestamp ? new Date(firstReq.timestamp) : stats.birthtime);
+            const lastReqTime2 = requests[requests.length - 1].timestamp ? new Date(requests[requests.length - 1].timestamp) : null;
             const updatedAt = sessionJson.lastMessageDate
               ? new Date(sessionJson.lastMessageDate)
-              : stats.mtime;
+              : (lastReqTime2 || stats.mtime);
             const userText = this._extractVsCodeUserText(firstReq.message);
 
             const copilotChatVersion = firstReq.agent?.extensionVersion || null;
             const realWorkspacePath = await this._resolveVsCodeWorkspacePath(path.join(workspaceStorageDir, hash));
+
+            // Same estimation logic as scan path
+            const fileMtime2 = stats.mtime;
+            // Count tools for estimation
+            let toolCount2 = 0;
+            for (const req of requests) {
+              toolCount2 += (req.response || []).filter(r => r.kind === 'toolInvocationSerialized').length;
+            }
+            let effectiveEnd2;
+            if (toolCount2 > 10 && lastReqTime2) {
+              const estimatedDurationMs2 = Math.max(toolCount2 * 3500, 60000);
+              effectiveEnd2 = new Date(createdAt.getTime() + estimatedDurationMs2);
+            } else if (lastReqTime2) {
+              effectiveEnd2 = lastReqTime2;
+            } else {
+              effectiveEnd2 = updatedAt;
+            }
 
             return new Session(sessionId, 'file', {
               source: 'vscode',
               filePath: fullPath,
               workspaceHash: hash,
               createdAt,
-              updatedAt,
+              updatedAt: effectiveEnd2,
               summary: userText ? userText.slice(0, 120) : `VSCode chat (${requests.length} requests)`,
               hasEvents: true,
               eventCount: requests.reduce((s, r) => s + (r.response || []).length, 0) + requests.length * 2 + 1,
-              duration: updatedAt - createdAt,
-              sessionStatus: (Date.now() - updatedAt.getTime()) < 5 * 60 * 1000 ? 'wip' : 'completed',
+              duration: effectiveEnd2.getTime() - createdAt.getTime(),
+              sessionStatus: (Date.now() - effectiveEnd2.getTime()) < 5 * 60 * 1000 ? 'wip' : 'completed',
               selectedModel: firstReq.modelId || null,
               copilotVersion: copilotChatVersion,
               workspace: { cwd: realWorkspacePath || path.join(workspaceStorageDir, hash) },
@@ -884,14 +902,34 @@ class SessionRepository {
         const createdAt = sessionJson.creationDate
           ? new Date(sessionJson.creationDate)
           : (firstReq.timestamp ? new Date(firstReq.timestamp) : stats.birthtime);
+        const lastReqTime = lastReq.timestamp ? new Date(lastReq.timestamp) : null;
         const updatedAt = sessionJson.lastMessageDate
           ? new Date(sessionJson.lastMessageDate)
-          : (lastReq.timestamp ? new Date(lastReq.timestamp) : stats.mtime);
+          : (lastReqTime || stats.mtime);
 
-        // Count tool invocations across all requests
+        // Count tool invocations across all requests (must be before effectiveEndTime calc)
         let toolCount = 0;
         for (const req of requests) {
           toolCount += (req.response || []).filter(r => r.kind === 'toolInvocationSerialized').length;
+        }
+
+        // For VSCode agentic sessions, file mtime may be more accurate than last request timestamp
+        // because sub-agents write incremental updates over time without new request timestamps.
+        // BUT: VSCode may touch/sync all files at once, creating misleading mtimes.
+        // Strategy: 
+        //   - If session has many tool invocations (agentic), estimate duration from tool count
+        //   - Otherwise fall back to request timestamps
+        const fileMtime = stats.mtime;
+        let effectiveEndTime;
+        if (toolCount > 10 && lastReqTime) {
+          // Agentic session: estimate ~3.5s per tool invocation as a rough heuristic
+          const estimatedDurationMs = Math.max(toolCount * 3500, 60000); // at least 1 min
+          const estimatedEnd = new Date(createdAt.getTime() + estimatedDurationMs);
+          effectiveEndTime = estimatedEnd;
+        } else if (lastReqTime) {
+          effectiveEndTime = lastReqTime;
+        } else {
+          effectiveEndTime = updatedAt;
         }
 
         const model = firstReq.modelId || null;
@@ -907,12 +945,12 @@ class SessionRepository {
             filePath: fullPath,
             workspaceHash,
             createdAt,
-            updatedAt,
+            updatedAt: effectiveEndTime,
             summary: userText ? userText.slice(0, 120) : `VSCode chat (${requests.length} requests)`,
             hasEvents: true,
             eventCount: requests.reduce((s, r) => s + (r.response || []).length, 0) + requests.length * 2 + 1,
-            duration: updatedAt - createdAt,
-            sessionStatus: (Date.now() - updatedAt.getTime()) < 5 * 60 * 1000 ? 'wip' : 'completed',
+            duration: effectiveEndTime.getTime() - createdAt.getTime(),
+            sessionStatus: (Date.now() - effectiveEndTime.getTime()) < 5 * 60 * 1000 ? 'wip' : 'completed',
             selectedModel: model,
             agentId,
             toolCount,
