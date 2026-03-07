@@ -27,7 +27,7 @@ for (let i = 0; i < NUM_SESSIONS; i++) {
   
   const baseTime = Date.now() - (i * 10 * 60 * 1000); // Stagger sessions by 10 min
   
-  // Generate mock events.jsonl
+  // Generate mock events.jsonl with more comprehensive data for testing
   const events = [
     {
       type: 'session.start',
@@ -58,6 +58,22 @@ for (let i = 0; i < NUM_SESSIONS; i++) {
       data: {
         content: 'Of course! I\'d be happy to help you with your coding task.',
         message: 'Of course! I\'d be happy to help you with your coding task.'
+      }
+    },
+    {
+      type: 'tool.execution_start',
+      timestamp: baseTime + 12000,
+      data: {
+        tool: 'read_file',
+        args: { path: 'test.js' }
+      }
+    },
+    {
+      type: 'tool.execution_complete',
+      timestamp: baseTime + 15000,
+      data: {
+        tool: 'read_file',
+        result: 'console.log("test");'
       }
     },
     {

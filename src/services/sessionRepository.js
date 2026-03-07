@@ -48,6 +48,23 @@ class SessionRepository {
     }
     
     this.parserFactory = new ParserFactory();
+    
+    // Cache: keyed by sourceType (null = all sources)
+    this._cache = new Map();
+    this._cacheTTL = 60 * 1000; // 60 seconds
+    this._pendingScans = new Map(); // dedup concurrent requests
+  }
+
+  /**
+   * Invalidate cache (call after tag/insight changes if needed)
+   */
+  invalidateCache(sourceType = null) {
+    if (sourceType) {
+      this._cache.delete(sourceType);
+      this._cache.delete(null); // also invalidate "all" cache
+    } else {
+      this._cache.clear();
+    }
   }
 
   /**
@@ -56,6 +73,36 @@ class SessionRepository {
    * @returns {Promise<Session[]>} Array of sessions sorted by updatedAt (newest first)
    */
   async findAll(sourceType = null) {
+    const cacheKey = sourceType || '__all__';
+    
+    // Check cache
+    const cached = this._cache.get(cacheKey);
+    if (cached && (Date.now() - cached.timestamp < this._cacheTTL)) {
+      return cached.data;
+    }
+
+    // Dedup concurrent scans for same key
+    if (this._pendingScans.has(cacheKey)) {
+      return this._pendingScans.get(cacheKey);
+    }
+
+    const scanPromise = this._doFindAll(sourceType).then(result => {
+      this._cache.set(cacheKey, { data: result, timestamp: Date.now() });
+      this._pendingScans.delete(cacheKey);
+      return result;
+    }).catch(err => {
+      this._pendingScans.delete(cacheKey);
+      throw err;
+    });
+
+    this._pendingScans.set(cacheKey, scanPromise);
+    return scanPromise;
+  }
+
+  /**
+   * @private
+   */
+  async _doFindAll(sourceType = null) {
     const allSessions = [];
 
     const sources = sourceType
