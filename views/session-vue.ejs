@@ -1095,6 +1095,95 @@
     .event.event-in-subagent { border-left-color: var(--subagent-border-color, #58a6ff); }
     .subagent-owner-tag { font-size: 11px; padding: 1px 6px; border-radius: 8px; border: 1px solid; white-space: nowrap; opacity: 0.85; }
     .subagent-name-badge { font-size: 11px; padding: 2px 8px; border-radius: 4px; border: 1px solid; white-space: nowrap; font-weight: 600; max-width: 280px; overflow: hidden; text-overflow: ellipsis; }
+
+    /* ── Mobile responsive ────────────────────────────────────── */
+    @media (max-width: 640px) {
+      /* Header: smaller, wrap if needed */
+      .header {
+        padding: 8px 12px;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+      .header-title {
+        font-size: 13px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        max-width: calc(100vw - 80px);
+      }
+      .time-analyze-btn,
+      .share-btn {
+        padding: 5px 8px;
+        font-size: 12px;
+      }
+
+      /* Sidebar backdrop (mobile only) */
+      .sidebar-backdrop {
+        display: block !important;
+        position: fixed;
+        inset: 0;
+        background: rgba(0,0,0,0.5);
+        z-index: 999;
+      }
+
+      /* Sidebar: hidden by default on mobile, overlay when open */
+      .sidebar {
+        position: fixed;
+        top: 0;
+        left: 0;
+        height: 100%;
+        width: 280px !important;
+        z-index: 1000;
+        box-shadow: 4px 0 16px rgba(0,0,0,0.6);
+        transform: translateX(-100%);
+        transition: transform 0.3s ease;
+      }
+      .sidebar:not(.collapsed) {
+        transform: translateX(0);
+      }
+      .sidebar.collapsed {
+        transform: translateX(-100%);
+        width: 280px !important;
+        padding: 16px !important;
+        border-right: 1px solid #30363d !important;
+        overflow-y: auto !important;
+      }
+
+      /* Content: full width */
+      .content {
+        width: 100%;
+      }
+
+      /* Toolbar: stack if narrow */
+      .scroll-indicator {
+        flex-wrap: wrap;
+        gap: 4px;
+        padding: 6px 8px;
+      }
+      .content-toolbar-left,
+      .content-toolbar-right {
+        gap: 4px;
+      }
+      .search-input {
+        width: 120px;
+        font-size: 12px;
+      }
+      .turn-dropdown {
+        max-width: 140px;
+        font-size: 12px;
+      }
+
+      /* Float buttons: slightly smaller */
+      .scroll-float-btns {
+        bottom: 16px;
+        right: 12px;
+      }
+      .scroll-edge-btn {
+        width: 28px;
+        height: 28px;
+        font-size: 12px;
+      }
+    }
   </style>
 </head>
 <body>
@@ -1142,13 +1231,15 @@
         const exporting = ref(false);
         
         // Load sidebar state from localStorage
+        const isMobile = () => window.innerWidth <= 640;
+
         const sidebarCollapsed = ref(
-          localStorage.getItem('sidebarCollapsed') === 'true'
+          isMobile() ? true : localStorage.getItem('sidebarCollapsed') === 'true'
         );
         
-        // Persist sidebar state to localStorage
+        // Persist sidebar state to localStorage (desktop only)
         watch(sidebarCollapsed, (newValue) => {
-          localStorage.setItem('sidebarCollapsed', newValue.toString());
+          if (!isMobile()) localStorage.setItem('sidebarCollapsed', newValue.toString());
         });
         
         const expandedTools = ref({});
@@ -2554,6 +2645,13 @@
           </div>
           
           <div class="main-layout">
+            <!-- Mobile overlay backdrop -->
+            <div
+              v-if="!sidebarCollapsed"
+              @click="sidebarCollapsed = true"
+              style="display:none"
+              class="sidebar-backdrop"
+            ></div>
             <div :class="['sidebar', { collapsed: sidebarCollapsed }]">
               <div class="sidebar-section">
                 <div class="sidebar-section-title">Session Info</div>
