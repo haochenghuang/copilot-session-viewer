@@ -533,46 +533,12 @@ class SessionRepository {
             const requests = sessionJson.requests || [];
             if (requests.length === 0) continue;
 
-            const firstReq = requests[0];
-            const createdAt = sessionJson.creationDate
-              ? new Date(sessionJson.creationDate)
-              : (firstReq.timestamp ? new Date(firstReq.timestamp) : stats.birthtime);
-            const lastReqTime2 = requests[requests.length - 1].timestamp ? new Date(requests[requests.length - 1].timestamp) : null;
-            const updatedAt = sessionJson.lastMessageDate
-              ? new Date(sessionJson.lastMessageDate)
-              : (lastReqTime2 || stats.mtime);
-            const userText = this._extractVsCodeUserText(firstReq.message);
-
-            const copilotChatVersion = firstReq.agent?.extensionVersion || null;
             const realWorkspacePath = await this._resolveVsCodeWorkspacePath(path.join(workspaceStorageDir, hash));
-
-            // Use last terminal command timestamp (truest end time for agentic sessions)
-            const lastTerminalTime2 = this._extractLastTerminalTimestamp(requests);
-            let effectiveEnd2;
-            if (lastTerminalTime2) {
-              effectiveEnd2 = lastTerminalTime2;
-            } else if (lastReqTime2) {
-              effectiveEnd2 = lastReqTime2;
-            } else {
-              effectiveEnd2 = updatedAt;
-            }
-
-            const isWip2 = (Date.now() - effectiveEnd2.getTime()) < 15 * 60 * 1000;
-            candidates.push(new Session(sessionId, 'file', {
-              source: 'vscode',
-              filePath: fullPath,
-              workspaceHash: hash,
-              createdAt,
-              updatedAt: effectiveEnd2,
-              summary: userText ? userText.slice(0, 120) : `VSCode chat (${requests.length} requests)`,
-              hasEvents: true,
-              eventCount: requests.reduce((s, r) => s + (r.response || []).length, 0) + requests.length * 2 + 1,
-              duration: effectiveEnd2.getTime() - createdAt.getTime(),
-              sessionStatus: isWip2 ? 'wip' : 'completed',
-              selectedModel: firstReq.modelId || null,
-              copilotVersion: copilotChatVersion,
-              workspace: { cwd: realWorkspacePath || path.join(workspaceStorageDir, hash) },
-            }));
+            const statsWithPath = { ...stats, filePath: fullPath };
+            candidates.push(this._buildVsCodeSession(
+              sessionId, requests, sessionJson, statsWithPath, hash,
+              realWorkspacePath || path.join(workspaceStorageDir, hash)
+            ));
           }
         } catch {
           // No chatSessions dir or can't read — skip
@@ -973,65 +939,11 @@ class SessionRepository {
         const requests = sessionJson.requests || [];
         if (requests.length === 0) continue;
 
-        const firstReq = requests[0];
-        const lastReq = requests[requests.length - 1];
-        const createdAt = sessionJson.creationDate
-          ? new Date(sessionJson.creationDate)
-          : (firstReq.timestamp ? new Date(firstReq.timestamp) : stats.birthtime);
-        const lastReqTime = lastReq.timestamp ? new Date(lastReq.timestamp) : null;
-        const updatedAt = sessionJson.lastMessageDate
-          ? new Date(sessionJson.lastMessageDate)
-          : (lastReqTime || stats.mtime);
-
-        // Count tool invocations across all requests (must be before effectiveEndTime calc)
-        let toolCount = 0;
-        for (const req of requests) {
-          toolCount += (req.response || []).filter(r => r.kind === 'toolInvocationSerialized').length;
-        }
-
-        // For VSCode sessions, use the last terminal command timestamp as end time.
-        // terminalCommandState.timestamp = when agent actually ran the command (true end).
-        // request.timestamp = when user sent the message (start of agent turn, not end).
-        // mtime is unreliable — VSCode syncs/touches all files when workspace opens.
-        const lastTerminalTime = this._extractLastTerminalTimestamp(requests);
-        let effectiveEndTime;
-        if (lastTerminalTime) {
-          effectiveEndTime = lastTerminalTime;
-        } else if (lastReqTime) {
-          effectiveEndTime = lastReqTime;
-        } else {
-          effectiveEndTime = updatedAt;
-        }
-
-        const model = firstReq.modelId || null;
-        const agentId = firstReq.agent?.id || 'vscode-copilot';
-        const copilotChatVersion = firstReq.agent?.extensionVersion || null;
-        const userText = this._extractVsCodeUserText(firstReq.message);
-
-        // WIP: only based on effectiveEndTime (real activity), NOT mtime (unreliable)
-        const isWip = (Date.now() - effectiveEndTime.getTime()) < 15 * 60 * 1000;
-        const session = new Session(
-          sessionId,
-          'file',
-          {
-            source: 'vscode',
-            filePath: fullPath,
-            workspaceHash,
-            createdAt,
-            updatedAt: effectiveEndTime,
-            summary: userText ? userText.slice(0, 120) : `VSCode chat (${requests.length} requests)`,
-            hasEvents: true,
-            eventCount: requests.reduce((s, r) => s + (r.response || []).length, 0) + requests.length * 2 + 1,
-            duration: effectiveEndTime.getTime() - createdAt.getTime(),
-            sessionStatus: isWip ? 'wip' : 'completed',
-            selectedModel: model,
-            agentId,
-            toolCount,
-            copilotVersion: copilotChatVersion,
-            workspace: { cwd: realWorkspacePath || workspaceHashDir },
-          }
+        const statsWithPath = { ...stats, filePath: fullPath };
+        const session = this._buildVsCodeSession(
+          sessionId, requests, sessionJson, statsWithPath, workspaceHash,
+          realWorkspacePath || workspaceHashDir
         );
-
         sessions.push(session);
       } catch (err) {
         // Skip malformed files silently
@@ -1042,12 +954,57 @@ class SessionRepository {
 
   /** Extract plain text from a VSCode message object */
   /**
-   * Extract the latest terminal command execution timestamp from VSCode requests.
-   * terminalCommandState.timestamp = when the agent actually ran the command,
-   * which is more accurate than request.timestamp (when user sent the message).
-   * This captures the true end time of long-running agentic sessions.
+   * Build a VSCode Session object from parsed JSONL data.
+   * Single source of truth for VSCode session construction — used by both
+   * the main scan loop and _findVsCodeSession to avoid duplicate logic.
    * @private
    */
+  _buildVsCodeSession(sessionId, requests, sessionJson, stats, workspaceHash, workspaceCwd) {
+    const firstReq = requests[0];
+    const lastReq = requests[requests.length - 1];
+
+    const createdAt = sessionJson.creationDate
+      ? new Date(sessionJson.creationDate)
+      : (firstReq.timestamp ? new Date(firstReq.timestamp) : stats.birthtime);
+
+    const lastReqTime = lastReq.timestamp ? new Date(lastReq.timestamp) : null;
+    const fallbackUpdatedAt = sessionJson.lastMessageDate
+      ? new Date(sessionJson.lastMessageDate)
+      : (lastReqTime || stats.mtime);
+
+    // Use last terminal command timestamp (truest end time for agentic sessions).
+    // terminalCommandState.timestamp = when the agent actually executed a command.
+    // request.timestamp = when the user sent the message (start of turn, not end).
+    // mtime is unreliable — VSCode syncs/touches all files when the workspace opens.
+    const lastTerminalTime = this._extractLastTerminalTimestamp(requests);
+    const effectiveEndTime = lastTerminalTime || lastReqTime || fallbackUpdatedAt;
+
+    const isWip = (Date.now() - effectiveEndTime.getTime()) < 15 * 60 * 1000;
+    const userText = this._extractVsCodeUserText(firstReq.message);
+    const toolCount = requests.reduce(
+      (sum, req) => sum + (req.response || []).filter(r => r.kind === 'toolInvocationSerialized').length,
+      0
+    );
+
+    return new Session(sessionId, 'file', {
+      source: 'vscode',
+      filePath: stats.filePath,
+      workspaceHash,
+      createdAt,
+      updatedAt: effectiveEndTime,
+      summary: userText ? userText.slice(0, 120) : `VSCode chat (${requests.length} requests)`,
+      hasEvents: true,
+      eventCount: requests.reduce((s, r) => s + (r.response || []).length, 0) + requests.length * 2 + 1,
+      duration: effectiveEndTime.getTime() - createdAt.getTime(),
+      sessionStatus: isWip ? 'wip' : 'completed',
+      selectedModel: firstReq.modelId || null,
+      agentId: firstReq.agent?.id || 'vscode-copilot',
+      toolCount,
+      copilotVersion: firstReq.agent?.extensionVersion || null,
+      workspace: { cwd: workspaceCwd },
+    });
+  }
+
   _extractLastTerminalTimestamp(requests) {
     let maxTs = 0;
 
