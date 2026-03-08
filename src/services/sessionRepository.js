@@ -512,6 +512,8 @@ class SessionRepository {
   async _findVsCodeSession(sessionId, workspaceStorageDir) {
     try {
       const hashes = await fs.readdir(workspaceStorageDir);
+      const candidates = [];
+
       for (const hash of hashes) {
         const chatSessionsDir = path.join(workspaceStorageDir, hash, 'chatSessions');
         try {
@@ -529,7 +531,7 @@ class SessionRepository {
               sessionJson = JSON.parse(raw);
             }
             const requests = sessionJson.requests || [];
-            if (requests.length === 0) return null;
+            if (requests.length === 0) continue;
 
             const firstReq = requests[0];
             const createdAt = sessionJson.creationDate
@@ -544,24 +546,25 @@ class SessionRepository {
             const copilotChatVersion = firstReq.agent?.extensionVersion || null;
             const realWorkspacePath = await this._resolveVsCodeWorkspacePath(path.join(workspaceStorageDir, hash));
 
-            // Same estimation logic as scan path
-            const _fileMtime2 = stats.mtime;
-            // Count tools for estimation
+            // Count tools
             let toolCount2 = 0;
             for (const req of requests) {
               toolCount2 += (req.response || []).filter(r => r.kind === 'toolInvocationSerialized').length;
             }
+
+            // Use last terminal command timestamp (truest end time for agentic sessions)
+            const lastTerminalTime2 = this._extractLastTerminalTimestamp(requests);
             let effectiveEnd2;
-            if (toolCount2 > 10 && lastReqTime2) {
-              const estimatedDurationMs2 = Math.max(toolCount2 * 3500, 60000);
-              effectiveEnd2 = new Date(createdAt.getTime() + estimatedDurationMs2);
+            if (lastTerminalTime2) {
+              effectiveEnd2 = lastTerminalTime2;
             } else if (lastReqTime2) {
               effectiveEnd2 = lastReqTime2;
             } else {
               effectiveEnd2 = updatedAt;
             }
 
-            return new Session(sessionId, 'file', {
+            const isWip2 = (Date.now() - effectiveEnd2.getTime()) < 15 * 60 * 1000;
+            candidates.push(new Session(sessionId, 'file', {
               source: 'vscode',
               filePath: fullPath,
               workspaceHash: hash,
@@ -571,15 +574,20 @@ class SessionRepository {
               hasEvents: true,
               eventCount: requests.reduce((s, r) => s + (r.response || []).length, 0) + requests.length * 2 + 1,
               duration: effectiveEnd2.getTime() - createdAt.getTime(),
-              sessionStatus: ((Date.now() - effectiveEnd2.getTime()) < 15 * 60 * 1000 || (Date.now() - stats.mtime.getTime()) < 15 * 60 * 1000) ? 'wip' : 'completed',
+              sessionStatus: isWip2 ? 'wip' : 'completed',
               selectedModel: firstReq.modelId || null,
               copilotVersion: copilotChatVersion,
               workspace: { cwd: realWorkspacePath || path.join(workspaceStorageDir, hash) },
-            });
+            }));
           }
         } catch {
           // No chatSessions dir or can't read — skip
         }
+      }
+      // Return the candidate with the latest effectiveEndTime (most complete data)
+      if (candidates.length > 0) {
+        candidates.sort((a, b) => (b.updatedAt?.getTime?.() ?? 0) - (a.updatedAt?.getTime?.() ?? 0));
+        return candidates[0];
       }
     } catch (err) {
       console.error(`[VSCode findById] Error searching VSCode sessions: ${err.message}`, err.stack);
@@ -685,6 +693,15 @@ class SessionRepository {
       if (!workspace.summary && optimizedMetadata.firstUserMessage) {
         workspace.summary = optimizedMetadata.firstUserMessage;
       }
+
+      // Use max of filesystem mtime and last event timestamp for updatedAt
+      if (optimizedMetadata.lastEventTime) {
+        const lastEventMs = new Date(optimizedMetadata.lastEventTime).getTime();
+        const mtimeMs = new Date(stats.mtime).getTime();
+        if (lastEventMs > mtimeMs) {
+          stats = { ...stats, mtime: new Date(lastEventMs) };
+        }
+      }
     }
 
     const session = Session.fromDirectory(fullPath, entry, stats, workspace, eventCount, duration, isImported, hasInsight, copilotVersion, selectedModel, sessionStatus);
@@ -727,7 +744,7 @@ class SessionRepository {
       return 'completed';
     }
     if (metadata.lastEventTime !== null && metadata.lastEventTime !== undefined) {
-      const WIP_THRESHOLD_MS = 15 * 60 * 1000;
+      const WIP_THRESHOLD_MS = 5 * 60 * 1000;
       if ((Date.now() - metadata.lastEventTime) < WIP_THRESHOLD_MS) {
         return 'wip';
       }
@@ -978,19 +995,14 @@ class SessionRepository {
           toolCount += (req.response || []).filter(r => r.kind === 'toolInvocationSerialized').length;
         }
 
-        // For VSCode agentic sessions, file mtime may be more accurate than last request timestamp
-        // because sub-agents write incremental updates over time without new request timestamps.
-        // BUT: VSCode may touch/sync all files at once, creating misleading mtimes.
-        // Strategy: 
-        //   - If session has many tool invocations (agentic), estimate duration from tool count
-        //   - Otherwise fall back to request timestamps
-        const _fileMtime = stats.mtime;
+        // For VSCode sessions, use the last terminal command timestamp as end time.
+        // terminalCommandState.timestamp = when agent actually ran the command (true end).
+        // request.timestamp = when user sent the message (start of agent turn, not end).
+        // mtime is unreliable — VSCode syncs/touches all files when workspace opens.
+        const lastTerminalTime = this._extractLastTerminalTimestamp(requests);
         let effectiveEndTime;
-        if (toolCount > 10 && lastReqTime) {
-          // Agentic session: estimate ~3.5s per tool invocation as a rough heuristic
-          const estimatedDurationMs = Math.max(toolCount * 3500, 60000); // at least 1 min
-          const estimatedEnd = new Date(createdAt.getTime() + estimatedDurationMs);
-          effectiveEndTime = estimatedEnd;
+        if (lastTerminalTime) {
+          effectiveEndTime = lastTerminalTime;
         } else if (lastReqTime) {
           effectiveEndTime = lastReqTime;
         } else {
@@ -1002,6 +1014,8 @@ class SessionRepository {
         const copilotChatVersion = firstReq.agent?.extensionVersion || null;
         const userText = this._extractVsCodeUserText(firstReq.message);
 
+        // WIP: only based on effectiveEndTime (real activity), NOT mtime (unreliable)
+        const isWip = (Date.now() - effectiveEndTime.getTime()) < 15 * 60 * 1000;
         const session = new Session(
           sessionId,
           'file',
@@ -1015,7 +1029,7 @@ class SessionRepository {
             hasEvents: true,
             eventCount: requests.reduce((s, r) => s + (r.response || []).length, 0) + requests.length * 2 + 1,
             duration: effectiveEndTime.getTime() - createdAt.getTime(),
-            sessionStatus: ((Date.now() - effectiveEndTime.getTime()) < 15 * 60 * 1000 || (Date.now() - stats.mtime.getTime()) < 15 * 60 * 1000) ? 'wip' : 'completed',
+            sessionStatus: isWip ? 'wip' : 'completed',
             selectedModel: model,
             agentId,
             toolCount,
@@ -1033,6 +1047,31 @@ class SessionRepository {
   }
 
   /** Extract plain text from a VSCode message object */
+  /**
+   * Extract the latest terminal command execution timestamp from VSCode requests.
+   * terminalCommandState.timestamp = when the agent actually ran the command,
+   * which is more accurate than request.timestamp (when user sent the message).
+   * This captures the true end time of long-running agentic sessions.
+   * @private
+   */
+  _extractLastTerminalTimestamp(requests) {
+    let maxTs = 0;
+
+    function walk(obj) {
+      if (!obj || typeof obj !== 'object') return;
+      if (Array.isArray(obj)) { obj.forEach(walk); return; }
+      if (obj.terminalCommandState && typeof obj.terminalCommandState.timestamp === 'number') {
+        const ts = obj.terminalCommandState.timestamp;
+        if (ts > 1_000_000_000_000 && ts < 9_999_999_999_999 && ts > maxTs) maxTs = ts;
+      }
+      for (const val of Object.values(obj)) walk(val);
+    }
+
+    for (const req of requests) walk(req.response);
+
+    return maxTs > 0 ? new Date(maxTs) : null;
+  }
+
   _extractVsCodeUserText(message) {
     if (!message) return '';
     if (typeof message.text === 'string') return message.text;

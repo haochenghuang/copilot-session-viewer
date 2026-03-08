@@ -146,7 +146,8 @@ async function getSessionMetadataOptimized(filePath, maxMessageLength = 200) {
       copilotVersion: copilotVersion || null,
       selectedModel: selectedModel || null,
       hasSessionEnd,
-      lastEventTime: lastTimestamp
+      lastEventTime: lastTimestamp,
+      firstEventTime: firstTimestamp
     };
   } catch (err) {
     console.error(`Error reading session metadata from ${filePath}:`, err.message);
