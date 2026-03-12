@@ -1,6 +1,6 @@
 {
   "name": "@qiaolei81/copilot-session-viewer",
-  "version": "0.3.3",
+  "version": "0.3.4",
   "description": "Web UI for viewing GitHub Copilot CLI session logs",
   "author": "Lei Qiao <qiaolei81@gmail.com>",
   "license": "MIT",
@@ -84,5 +84,27 @@
     "nyc": "^17.1.0",
     "supertest": "^7.2.2",
     "v8-to-istanbul": "^9.3.0"
-  }
+  },
+  "files": [
+    "bin/",
+    "server.js",
+    "src/app.js",
+    "src/config/",
+    "src/controllers/",
+    "src/middleware/",
+    "src/models/",
+    "src/routes/",
+    "src/schemas/",
+    "src/services/",
+    "src/telemetry.js",
+    "src/utils/",
+    "!src/**/__tests__/",
+    "!src/**/*.test.js",
+    "views/",
+    "public/css/",
+    "public/js/*.min.js",
+    "public/img/",
+    "LICENSE",
+    "README.md"
+  ]
 }
