@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.5] - 2026-03-13
+
+### Added
+- **Backend Bundle** - Server-side code (`server.js` + `src/` + `lib/`) bundled into single minified `dist/server.min.js` via esbuild. npm package no longer ships readable source code.
+- **Telemetry: App Version** - Every telemetry event now includes `appVersion` from package.json via Application Insights context tag and telemetry processor.
+- **Telemetry: Anonymous User ID** - Persistent UUID v4 stored in `~/.copilot-session-viewer/analytics-id` for anonymous user identification across sessions.
+- **Vendor Libraries** - Frontend dependencies (Vue 3.5.30, marked 17.0.4, DOMPurify 3.3.3, vue-virtual-scroller 2.0.0-beta.8) served locally from `public/vendor/` instead of CDN. Fully offline-capable.
+
+### Changed
+- **npm Package** - Reduced from 44 to 18 files (168 kB). No `src/` or `lib/` source files in package; only minified bundles, views, and vendor libs shipped.
+- **Build Pipeline** - `npm run build` now builds both frontend and backend bundles.
+- **ESLint** - Added `public/vendor/**` and `dist/*.map` to ignore patterns.
+
+### Fixed
+- **Source Map Leak** - `dist/*.map` files excluded from git and npm package.
+
 ## [0.3.4] - 2026-03-13
 
 ### Fixed

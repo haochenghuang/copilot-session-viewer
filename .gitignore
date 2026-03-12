@@ -44,3 +44,4 @@ TODO*.md
 public/js/*.map
 dist/*.map
 public/js/*.min.js
+*.tgz
