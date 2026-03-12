@@ -54,7 +54,7 @@ jobs:
           export DISABLE_TELEMETRY=true
           export PORT=3839
           mkdir -p ~/.copilot/session-state
-          node node_modules/@qiaolei81/copilot-session-viewer/server.js &
+          node node_modules/@qiaolei81/copilot-session-viewer/dist/server.min.js &
           sleep 3
           curl -sf http://localhost:3839/ > /dev/null
           kill %1
