@@ -88,6 +88,7 @@
   "files": [
     "bin/",
     "server.js",
+    "lib/",
     "src/app.js",
     "src/config/",
     "src/controllers/",
