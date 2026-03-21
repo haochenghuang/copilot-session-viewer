@@ -587,6 +587,7 @@
     }
     .summary-tooltip.visible {
       display: block;
+      pointer-events: auto;
     }
     /* Markdown prose styles inside tooltip */
     .summary-tooltip h1, .summary-tooltip h2, .summary-tooltip h3,
@@ -637,16 +638,18 @@
 
     document.addEventListener('mousemove', e => {
       if (!tooltipTarget) return;
+      // Don't reposition if mouse is over the tooltip itself
+      if (e.target.closest('#summary-tooltip')) return;
       positionTooltip(e);
     });
 
     document.addEventListener('mouseout', e => {
       if (!tooltipTarget) return;
-      const el = e.target.closest('.session-summary');
-      if (el) {
-        tooltipTarget = null;
-        tooltip.classList.remove('visible');
-      }
+      // Hide only when leaving both the summary element and the tooltip
+      const toEl = e.relatedTarget;
+      if (toEl && (toEl.closest('.session-summary') || toEl.closest('#summary-tooltip'))) return;
+      tooltipTarget = null;
+      tooltip.classList.remove('visible');
     });
 
     function positionTooltip(e) {
