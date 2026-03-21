@@ -299,8 +299,9 @@ function renderSessionCard(session) {
 
   let summaryHtml = '';
   if (session.summary && session.summary !== 'No summary' && session.summary !== 'Legacy session') {
-    const summaryTitle = session.summary.replace(/"/g, '&quot;');
-    summaryHtml = `<div class="session-summary" title="${summaryTitle}">${escapeHtml(session.summary).replace(/\n/g, '<br>')}</div>`;
+    const summaryFull = session.summary.replace(/"/g, '&quot;');
+    const summaryOneLine = escapeHtml(session.summary).replace(/\n+/g, ' ');
+    summaryHtml = `<div class="session-summary" title="${summaryFull}">${summaryOneLine}</div>`;
   } else {
     summaryHtml = '<div class="session-summary" style="color: #6e7681; font-style: italic;">No summary available</div>';
   }
