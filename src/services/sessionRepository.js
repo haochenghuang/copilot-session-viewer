@@ -698,6 +698,16 @@ class SessionRepository {
     const workspace = await fileExists(workspaceFile) 
       ? await parseYAML(workspaceFile)
       : { summary: entry, repo: 'unknown' };
+
+    // Sanitize summary: if it's a multi-line agent prompt, extract first meaningful line
+    if (workspace.summary && workspace.summary.includes('\n')) {
+      const lines = workspace.summary.split('\n');
+      const firstMeaningful = lines.find(l => {
+        const t = l.trim();
+        return t.length > 0 && !t.startsWith('#') && !t.startsWith('!') && !t.startsWith('<!--');
+      });
+      workspace.summary = firstMeaningful ? firstMeaningful.trim() : lines[0].trim();
+    }
     
     const eventCount = await fileExists(eventsFile) ? await countLines(eventsFile) : 0;
     const isImported = await fileExists(importedMarkerFile);

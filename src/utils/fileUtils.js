@@ -1,6 +1,7 @@
 const fs = require('fs').promises;
 const fsSync = require('fs');
 const readline = require('readline');
+const yaml = require('js-yaml');
 
 /**
  * File utility functions
@@ -48,17 +49,7 @@ async function countLines(filePath) {
 async function parseYAML(filePath) {
   try {
     const content = await fs.readFile(filePath, 'utf-8');
-    const lines = content.split('\n');
-    const result = {};
-
-    for (const line of lines) {
-      const match = line.match(/^(\w+):\s*(.+)$/);
-      if (match) {
-        result[match[1]] = match[2].trim();
-      }
-    }
-
-    return result;
+    return yaml.load(content) || {};
   } catch (err) {
     console.error(`Error parsing YAML ${filePath}:`, err.message);
     return {};
