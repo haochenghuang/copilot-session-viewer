@@ -1755,7 +1755,7 @@
             v-else
             ref="scrollerRef"
             :items="filteredEvents"
-            :min-item-size="80"
+            :min-item-size="120"
             :prerender="10"
             key-field="stableId"
             class="scroller"
