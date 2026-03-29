@@ -753,6 +753,16 @@ class SessionService {
           const success = ev.data?.success !== false;
           start.data.hookSuccess = success;
           start.data.hookError = ev.data?.error || null;
+          // Calculate duration
+          if (start.timestamp && ev.timestamp) {
+            const ms = new Date(ev.timestamp) - new Date(start.timestamp);
+            start.data.hookDurationMs = ms;
+            // Append duration to message
+            const durationStr = ms < 1000 ? `${ms}ms` : `${(ms / 1000).toFixed(2)}s`;
+            if (start.data.message) {
+              start.data.message += `\n**Duration:** ${durationStr}`;
+            }
+          }
           // Update badge to show result
           start.data.badgeLabel = success ? '✓ HOOK' : '✗ HOOK';
           start.data.badgeClass = success ? 'badge-tool' : 'badge-error';
