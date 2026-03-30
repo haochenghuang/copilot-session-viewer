@@ -64,240 +64,81 @@ class SessionService {
       return options ? { events: [], total: 0 } : [];
     }
 
+    const adapter = this._getSourceAdapter(session.source);
+    const sourceConfig = this.sessionRepository.sources.find(s => s.type === session.source);
+    let resolvedSourceDir = sourceConfig?.dir || null;
 
-    // Determine the file path based on source
-    let eventsFile;
+    if (!resolvedSourceDir && adapter) {
+      resolvedSourceDir = await adapter.resolveDir();
+    }
     
-    if (session.source === 'copilot') {
-      // Copilot format: directory/events.jsonl or sessionId.jsonl
-      if (this.SESSION_DIR) {
-        // Single-source mode (backward compatibility)
-        const sessionPath = path.join(this.SESSION_DIR, sessionId);
-        try {
-          const stats = await fs.promises.stat(sessionPath);
-          if (stats.isDirectory()) {
-            eventsFile = path.join(sessionPath, 'events.jsonl');
-          } else {
-            eventsFile = path.join(this.SESSION_DIR, `${sessionId}.jsonl`);
-          }
-        } catch (_err) {
-          eventsFile = path.join(this.SESSION_DIR, `${sessionId}.jsonl`);
-        }
-      } else {
-        // Multi-source mode
-        const copilotSource = this.sessionRepository.sources.find(s => s.type === 'copilot');
-        if (!copilotSource) return [];
-        
-        const sessionPath = path.join(copilotSource.dir, sessionId);
-        try {
-          const stats = await fs.promises.stat(sessionPath);
-          if (stats.isDirectory()) {
-            eventsFile = path.join(sessionPath, 'events.jsonl');
-          } else {
-            eventsFile = path.join(copilotSource.dir, `${sessionId}.jsonl`);
-          }
-        } catch (_err) {
-          eventsFile = path.join(copilotSource.dir, `${sessionId}.jsonl`);
-        }
-      }
-    } else if (session.source === 'claude') {
-      // Claude format: projects/*/sessionId.jsonl
-      const claudeSource = this.sessionRepository.sources.find(s => s.type === 'claude');
-      if (!claudeSource) return [];
-      
-      // If session type is 'directory', it's a subagents-only session (no main file)
-      // Skip main file search and load only subagents
-      if (session.type !== 'directory') {
-        // Search all project directories for this session
-        try {
-          const projects = await fs.promises.readdir(claudeSource.dir);
-          for (const project of projects) {
-            const candidateFile = path.join(claudeSource.dir, project, `${sessionId}.jsonl`);
-            try {
-              await fs.promises.access(candidateFile);
-              eventsFile = candidateFile;
-              break;
-            } catch {
-              // Not in this project, continue
-            }
-          }
-        } catch (err) {
-          console.error('Error searching Claude projects:', err);
-          return [];
-        }
-      }
-    } else if (session.source === 'pi-mono') {
-      // Pi-Mono format: sessions/--project-path--/timestamp_uuid.jsonl
-      const piMonoSource = this.sessionRepository.sources.find(s => s.type === 'pi-mono');
-      if (!piMonoSource) return [];
-
-      // Search all project directories for this session ID
-      try {
-        const projects = await fs.promises.readdir(piMonoSource.dir);
-        for (const project of projects) {
-          const projectPath = path.join(piMonoSource.dir, project);
-          try {
-            const files = await fs.promises.readdir(projectPath);
-            const matchingFile = files.find(f => f.includes(`_${sessionId}.jsonl`));
-            if (matchingFile) {
-              eventsFile = path.join(projectPath, matchingFile);
-              break;
-            }
-          } catch {
-            // Not a directory or can't read
-          }
-        }
-      } catch (err) {
-        console.error('Error searching Pi-Mono sessions:', err);
-        return [];
-      }
-    } else if (session.source === 'vscode') {
-      // VSCode format: Read JSONL file and parse with VsCodeParser
-      const { VsCodeParser } = require('../../lib/parsers');
-      const vscodeParser = new VsCodeParser();
-      try {
-        const raw = await fs.promises.readFile(session.filePath, 'utf-8');
-        const lines = raw.trim().split('\n').filter(line => line.trim());
-        const parsedLines = lines.map(line => {
-          try {
-            return JSON.parse(line);
-          } catch {
-            return null;
-          }
-        }).filter(l => l !== null);
-
-        if (parsedLines.length === 0) return [];
-
-        // Use parseJsonl for new JSONL format, or parseVsCode for old JSON format
-        let parsed;
-        if (vscodeParser.canParse(parsedLines)) {
-          // New JSONL format
-          parsed = vscodeParser.parseJsonl(parsedLines);
-        } else {
-          // Old JSON format (single object)
-          const sessionJson = JSON.parse(raw);
-          parsed = vscodeParser.parseVsCode(sessionJson);
-        }
-
-        let events = this._expandVsCodeEvents(parsed.allEvents);
-
-        // Bug fix #2: Use file modification time as session end time
-        // VSCode sessions only record request.timestamp, not completion time
-        // For agentic sessions with sub-agents, actual work takes much longer
-        if (events.length > 0) {
-          try {
-            const stats = await fs.promises.stat(session.filePath);
-            const fileMtime = new Date(stats.mtime).toISOString();
-
-            // Check if the last event timestamp is much earlier than file mtime
-            const lastEvent = events[events.length - 1];
-            if (lastEvent && lastEvent.timestamp) {
-              const lastEventTime = new Date(lastEvent.timestamp).getTime();
-              const fileTime = new Date(fileMtime).getTime();
-              const diffSeconds = (fileTime - lastEventTime) / 1000;
-
-              // If difference is more than 10 seconds, use file mtime as end time
-              if (diffSeconds > 10) {
-                // Update the last event's timestamp to file modification time
-                lastEvent.timestamp = fileMtime;
-                console.log(`[VSCode] Updated session ${session.id} end time to file mtime (${diffSeconds.toFixed(0)}s difference)`);
-              }
-            }
-          } catch (err) {
-            console.error('[VSCode] Error getting file mtime:', err);
-          }
-        }
-
-        // Bug fix #1: Generate tool.execution_start/complete events from data.tools array
-        // This expansion must happen here before returning, since VSCode bypasses the normal pipeline
-        events = this._expandVsCodeToTimelineFormat(events);
-
-        return events;
-      } catch (err) {
-        console.error('Error reading VSCode session:', err);
-        return [];
-      }
+    // Support legacy single source dir mode
+    if (this.SESSION_DIR && session.source === 'copilot') {
+      resolvedSourceDir = this.SESSION_DIR;
     }
 
+    const eventsFile = adapter && !adapter.hasCustomPipeline
+      ? await adapter.resolveEventsFile(session, resolvedSourceDir)
+      : null;
 
-    // Initialize events array
     let events = [];
-    
-    // Load main events file if it exists
-    if (eventsFile) {
-      try {
-        await fs.promises.access(eventsFile);
-        
-        // Stream-based reading: supports files of any size
-        const fileStream = fs.createReadStream(eventsFile, { encoding: 'utf-8' });
-        const rl = readline.createInterface({
-          input: fileStream,
-          crlfDelay: Infinity // Treat \r\n as single line break
-        });
-        
-        let lineIndex = 0;
-        const parsedEvents = [];
-        
-        for await (const line of rl) {
-          const trimmedLine = line.trim();
-          if (trimmedLine) {
-            try {
-              const event = JSON.parse(trimmedLine);
-              event._fileIndex = lineIndex;
-              parsedEvents.push(event);
-            } catch (err) {
-              console.error(`Error parsing line ${lineIndex + 1}:`, err.message);
-            }
-          }
-          lineIndex++;
-        }
-        
-        events = parsedEvents;
+    if (!adapter) {
+      console.warn(
+        `SessionService.getSessionEvents: No adapter found for source '${session.source}'. Returning no events.`
+      );
+    } else {
+      events = (await adapter.readEvents(session, resolvedSourceDir)) || [];
+    }
 
-        // Sort by timestamp with stable tiebreaker on original file order
-        events.sort((a, b) => {
-          const timeA = a.timestamp ? new Date(a.timestamp).getTime() : 0;
-          const timeB = b.timestamp ? new Date(b.timestamp).getTime() : 0;
-          if (timeA !== timeB) return timeA - timeB;
-          return a._fileIndex - b._fileIndex;
-        });
+    // Sanitize the adapter-provided base stream before sub-agent merging.
+    // Note: regular sessions intentionally still include merged sub-agent events
+    // added later by _mergeSubAgentEvents() for timeline/detail analysis.
+    if (events.length > 0) {
+      const isSubAgentOnlySession = session.source === 'claude' && session.type === 'directory';
 
-        // Normalize events to unified format (convert Claude format to standard)
-        const normalizedEvents = events.map(event => this._normalizeEvent(event, session.source));
-        events = normalizedEvents;
-        
-        // Match tool calls across events (source-specific)
-        if (session.source === 'copilot') {
-          this._matchCopilotToolCalls(events);
-          this._mergeHookEvents(events);
-        } else if (session.source === 'claude') {
-          this._matchClaudeToolResults(events);
-        }
-      } catch (err) {
-        console.error('Error reading main events file:', err);
-        // Continue to load subagents even if main file fails
+      if (isSubAgentOnlySession) {
+        // Claude directory sessions represent sub-agent-only views.
+        // If the adapter returns any mixed events, keep only sub-agent entries.
+        events = events.filter(e => e._subagent);
+      } else {
+        // For regular sessions, remove sub-agent-tagged events from the adapter's
+        // base stream so sub-agents are added in one place via _mergeSubAgentEvents().
+        events = events.filter(e => !e._subagent);
       }
     }
+
+
+    // Sort by timestamp with stable tiebreaker on original file order
+    events.sort((a, b) => {
+      const timeA = a.timestamp ? new Date(a.timestamp).getTime() : 0;
+      const timeB = b.timestamp ? new Date(b.timestamp).getTime() : 0;
+      if (timeA !== timeB) return timeA - timeB;
+      return (a._fileIndex ?? 0) - (b._fileIndex ?? 0);
+    });
+
+    // Normalize events to unified format (convert Claude format to standard)
+    events = events.map(event => this._normalizeEvent(event, session.source));
     
     // Load and merge sub-agent events (for both Copilot and Claude)
     // For Claude sessions without main events.jsonl, this will load subagents from correct path
-    await this._mergeSubAgentEvents(events, eventsFile, sessionId, session.source);
+    if (adapter && !adapter.hasCustomPipeline) {
+      await this._mergeSubAgentEvents(events, eventsFile, sessionId, session.source);
+    }
     
     // Re-run tool matching after merging subagents (subagent events need matching too)
-    if (session.source === 'copilot') {
+    if (adapter && !adapter.hasCustomPipeline && session.source === 'copilot') {
       this._matchCopilotToolCalls(events);
       this._mergeHookEvents(events);
       events = this._expandCopilotToTimelineFormat(events);
-    } else if (session.source === 'claude') {
+    } else if (adapter && !adapter.hasCustomPipeline && session.source === 'claude') {
       this._matchClaudeToolResults(events);
       events = this._expandClaudeToTimelineFormat(events);
-    } else if (session.source === 'pi-mono') {
+    } else if (adapter && !adapter.hasCustomPipeline && session.source === 'pi-mono') {
       // Pi-Mono: Keep original event structure, no transformation
       // Events are already normalized with type="message" + role in data
       // But we need to merge toolResult events into their parent assistant messages
       this._mergePiMonoToolResults(events);
     }
-    // Note: VSCode expansion is handled in the VSCode block above (before early return)
     
     // Clean up events for timeline rendering
     events = events.filter(e => {
@@ -1371,6 +1212,14 @@ class SessionService {
     }
 
     const events = await this.getSessionEvents(sessionId);
+    const adapter = this._getSourceAdapter(session.source);
+
+    if (adapter) {
+      const timeline = adapter.buildTimeline(events, session);
+      if (timeline && (timeline.turns?.length > 0 || Object.keys(timeline.summary || {}).length > 0)) {
+        return timeline;
+      }
+    }
 
     // Dispatch to source-specific builder
     if (session.source === 'copilot') {
@@ -1511,8 +1360,8 @@ class SessionService {
         );
         if (tool) {
           tool.endTime = event.timestamp;
-          tool.status = event.data.error || event.data.isError ? 'error' : 'completed';
-          tool.result = event.data.result || event.data.output;
+          tool.status = (event.data?.error || event.data?.isError) ? 'error' : 'completed';
+          tool.result = event.data?.result;
         }
       }
     }
@@ -1809,8 +1658,6 @@ class SessionService {
         // Tools are attached to assistant event as data.tools array
         if (event.data?.tools && event.data.tools.length > 0) {
           event.data.tools.forEach((tool, idx) => {
-            const _toolCallId = tool.toolId || `tool-${i}-${idx}`;
-            
             // tool.execution_start
             if (tool.start) {
               expanded.push({
@@ -2047,6 +1894,12 @@ class SessionService {
 
     return expanded;
   }
+
+  _getSourceAdapter(source) {
+    const registry = this.sessionRepository.registry || require('../adapters').registry;
+    return registry?.get ? registry.get(source) : null;
+  }
 }
 
 module.exports = SessionService;
+
