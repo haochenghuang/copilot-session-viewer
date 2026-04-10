@@ -6,6 +6,7 @@ test.describe('Session Detail Page', () => {
   let SESSION_ID;
   let EVENTFUL_SESSION_ID;
   let CLAUDE_USAGE_SESSION_ID;
+  let CLAUDE_DEDUP_SESSION_ID;
 
   const getWithRetry = async (request, url, attempts = 3) => {
     let lastError;
@@ -25,6 +26,46 @@ test.describe('Session Detail Page', () => {
   };
 
   const getRenderedEventItems = page => page.locator('.event, .turn-divider, .subagent-divider');
+
+  const getVisibleEvents = (events) => events.filter(event => {
+    const eventType = event.type || '';
+    return eventType !== 'assistant.turn_end'
+      && eventType !== 'assistant.turn_complete'
+      && eventType !== 'tool.execution_start'
+      && eventType !== 'tool.execution_complete';
+  });
+
+  const getDedupEventKey = event => JSON.stringify([
+    event.type || '',
+    event.timestamp || '',
+    event.uuid || event.id || '',
+    event.parentUuid || event.parentId || '',
+    event.data?.message || event.data?.text || event.data?.content || event.data?.reason || '',
+    event.data?.toolCallId || '',
+    event.data?.toolName || ''
+  ]);
+
+  const isClaudeDedupCandidate = (events) => {
+    if (!Array.isArray(events) || events.length === 0) {
+      return false;
+    }
+
+    const hasSubagentSignals = events.some(event =>
+      event.type === 'subagent.started'
+      || event.type === 'subagent.completed'
+      || event.type === 'subagent.failed'
+      || event._subagent?.id
+    );
+
+    const hasMainThreadEvents = events.some(event =>
+      event.type !== 'subagent.started'
+      && event.type !== 'subagent.completed'
+      && event.type !== 'subagent.failed'
+      && !event._subagent?.id
+    );
+
+    return hasSubagentSignals && hasMainThreadEvents;
+  };
 
   const waitForEventsToRender = async (page) => {
     await page.waitForSelector('.main-layout', { timeout: 15000 });
@@ -71,11 +112,26 @@ test.describe('Session Detail Page', () => {
 
     const claudeResponse = await getWithRetry(request, '/api/sessions?source=claude');
     const claudeSessions = await claudeResponse.json();
-    for (const session of claudeSessions.slice(0, 10)) {
-      const detailResponse = await getWithRetry(request, `/session/${session.id}`);
-      const detailHtml = await detailResponse.text();
-      if (detailHtml.includes('"usage":') && detailHtml.includes('"modelMetrics"')) {
-        CLAUDE_USAGE_SESSION_ID = session.id;
+    for (const session of claudeSessions.slice(0, 20)) {
+      if (!CLAUDE_DEDUP_SESSION_ID) {
+        const eventsResponse = await getWithRetry(request, `/api/sessions/${session.id}/events`);
+        if (eventsResponse.ok()) {
+          const events = await eventsResponse.json();
+          if (isClaudeDedupCandidate(events)) {
+            CLAUDE_DEDUP_SESSION_ID = session.id;
+          }
+        }
+      }
+
+      if (!CLAUDE_USAGE_SESSION_ID) {
+        const detailResponse = await getWithRetry(request, `/session/${session.id}`);
+        const detailHtml = await detailResponse.text();
+        if (detailHtml.includes('"usage":') && detailHtml.includes('"modelMetrics"')) {
+          CLAUDE_USAGE_SESSION_ID = session.id;
+        }
+      }
+
+      if (CLAUDE_DEDUP_SESSION_ID && CLAUDE_USAGE_SESSION_ID) {
         break;
       }
     }
@@ -139,6 +195,41 @@ test.describe('Session Detail Page', () => {
     const events = getRenderedEventItems(page);
     const count = await events.count();
     expect(count).toBeGreaterThan(0);
+  });
+
+  test('should not surface duplicated Claude replay events in session detail counts', async ({ page, request }) => {
+    test.skip(!CLAUDE_DEDUP_SESSION_ID, 'No Claude session with mixed main/subagent events available');
+
+    const response = await getWithRetry(request, `/api/sessions/${CLAUDE_DEDUP_SESSION_ID}/events`);
+
+    const events = await response.json();
+    test.skip(!Array.isArray(events) || events.length === 0, 'Claude dedup candidate session has no events');
+
+    const visibleEvents = getVisibleEvents(events);
+    const uniqueEventKeys = new Set(visibleEvents.map(getDedupEventKey));
+
+    expect(uniqueEventKeys.size).toBe(visibleEvents.length);
+
+    await page.goto(`/session/${CLAUDE_DEDUP_SESSION_ID}`);
+    await waitForEventsToRender(page);
+    await page.waitForTimeout(1000);
+
+    const toggle = page.locator('.filter-type-toggle');
+    await toggle.click();
+    await page.waitForTimeout(200);
+
+    const allItem = page.locator('.filter-type-menu-item').first();
+    const countText = await allItem.locator('.filter-type-menu-count').textContent();
+
+    await toggle.click();
+    await page.waitForTimeout(100);
+
+      expect(countText).not.toBeNull();
+
+      const allCount = Number.parseInt(countText ?? '', 10);
+
+      expect(Number.isNaN(allCount)).toBe(false);
+      expect(allCount).toBe(visibleEvents.length);
   });
 
   test('should filter events by search', async ({ page }) => {
